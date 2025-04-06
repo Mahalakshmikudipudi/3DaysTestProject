@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Working Hours</title>
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+</head>
+<body><header>
+    <nav>
+        <ul>
+            <li><a href="/public/html/admin/home.html">Home</a></li>
+            <li><a href="/public/html/admin/serviceList.html">Services</a></li>
+            <li><a href="/public/html/admin/staffList.html">Staff</a></li>
+            <li><a href="/public/html/admin/appointmentList.html">Appointments</a></li>
+            <li><a href="/public/html/admin/customersList.html">Customers</a></li>
+            <li><a href="/public/html/admin/workingHours.html">Working Hours</a></li>
+            <button>logout</button>
+        </ul>
+    </nav>
+</header>
+
+    <form id="workingHours">
+        <label for="day">Day:</label>
+        <select id="day" name="day" required>
+            <option value="Monday">Monday</option>
+            <option value="Tuesday">Tuesday</option>
+            <option value="Wednesday">Wednesday</option>
+            <option value="Thursday">Thursday</option>
+            <option value="Friday">Friday</option>
+            <option value="Saturday">Saturday</option>
+            <option value="Sunday">Sunday</option>  
+        </select><br><br>
+        <label for="startTime">Start Time:</label>
+        <input type="time" id="startTime" name="startTime" required><br><br>
+        <label for="endTime">End Time:</label>
+        <input type="time" id="endTime" name="endTime" required><br><br>
+        <button onclick="addWorkingHours()">Submit</button>
+    </form>
+    <main>
+        <h1>Working Hours</h1>
+        <ul id="workingHoursList"></ul>
+       
+    </main>
+
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="/public/js/admin/workingHours.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Signup</title>
+    <script defer src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="/public/css/styles.css">
+</head>
+<body>
+    <form onsubmit="signup(event)">
+        <label for="name">Enter name:</label>
+        <input type="text" id="name" placeholder="Full Name">
+        <label for="email">Enter email:</label>
+        <input type="email" id="email" placeholder="Email">
+        <label for="phonenumber">Enter phonenumber:</label>
+        <input type="text" id="phonenumber" placeholder="Phone Number">
+        <label for="password">Enter password:</label>
+        <input type="password" id="password" placeholder="Password">
+        <label for="role">Select Role:</label>
+        <select name="role" id="role">
+            <option value="Customer">Customer</option>
+            <option value="Admin">Admin</option>
+            
+        </select>
+        <button>Sign Up</button>
+        
+    </form>
+    <a href="/public/html/login.html">
+        <button>Existing User - Login Now</button>
+    </a>    
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="/public/js/signup.js"></script>
+</body>
+</html>

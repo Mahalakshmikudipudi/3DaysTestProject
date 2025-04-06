@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff List</title>
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/public/html/admin/home.html">Home</a></li>
+                <li><a href="/public/html/admin/serviceList.html">Services</a></li>
+                <li><a href="/public/html/admin/staffList.html">Staff</a></li>
+                <li><a href="/public/html/admin/appointmentList.html">Appointments</a></li>
+                <li><a href="/public/html/admin/customersList.html">Customers</a></li>
+                <li><a href="/public/html/admin/workingHours.html">Working Hours</a></li>
+                <button>logout</button>
+            </ul>
+        </nav>
+    </header>
+    <h2>Add New Staff Member</h2>
+    <label for="staffName">Enter Name:</label>
+    <input type="text" id="staffName" placeholder="Name">
+    <label for="staffEmail">Enter Email:</label>    
+    <input type="email" id="staffEmail" placeholder="Email">
+    <label for="staffPhone">Enter Phone:</label>
+    <input type="text" id="staffPhone" placeholder="Phone">
+    <label for="specialization">Specialization:</label>
+    <select id="specialization" onfocus="fetchServices()">
+      <option value="">-- Select Service --</option>
+    </select>
+    <button onclick="addStaff()" id="submitBtn" style="display: block;">Add Staff</button>
+
+    <h2>Staff List</h2>
+<table border="1">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Phone</th>
+      <th>Specialization</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="staffList"></tbody>
+</table>
+
+
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="/public/js/admin/staffList.js"></script>
+    <script src="/public/js/admin/serviceList.js"></script>
+
+</body>
+</html>

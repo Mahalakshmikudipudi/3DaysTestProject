@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointment List</title>
+    <link rel="stylesheet" href="../css/styles.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/public/html/admin/home.html">Home</a></li>
+                <li><a href="/public/html/admin/serviceList.html">Services</a></li>
+                <li><a href="/public/html/admin/staffList.html">Staff</a></li>
+                <li><a href="/public/html/admin/appointmentList.html">Appointments</a></li>
+                <li><a href="/public/html/admin/customersList.html">Customers</a></li>
+                <li><a href="/public/html/admin/workingHours.html">Working Hours</a></li>
+                <button>logout</button>
+            </ul>
+        </nav>
+    </header>
+    <h1>Appointment List</h1>
+    <table id="appointmentTable" border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="appointmentTableBody">
+            <tr id="noAppointmentsRow" style="display: none;">
+                <td colspan="5">No appointments available.</td>
+            <!-- Appointments will be dynamically added here -->
+        </tbody>
+    </table>
+
+    <script src="../js/admin/appointmentList.js"></script>
+    <script src="../js/customers/bookingAppointment.js"></script>
+</body>
+</html>
