@@ -1,0 +1,557 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #a6afa0;
+    color: #333;
+    line-height: 1.6;
+}
+
+header {
+    background-color: #ff6f61;
+    padding: 1rem 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+    justify-content: flex-end;
+}
+
+nav li {
+    margin-left: 1rem;
+}
+
+nav a button {
+    background-color: #fff;
+    color: #ff6f61;
+    border: 2px solid #fff;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+nav a button:hover {
+    background-color: transparent;
+    color: #fff;
+    border: 2px solid #fff;
+}
+
+.hero {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: url('https://images.unsplash.com/photo-1579033461380-adb47c5d3a46') no-repeat center center/cover;
+    color: white;
+}
+
+.hero h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.hero a button {
+    background-color: #fff;
+    color: #ff6f61;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 25px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.hero a button:hover {
+    background-color: #ffeae7;
+}
+
+.features {
+    padding: 3rem 2rem;
+    background-color: #fff;
+    text-align: center;
+}
+
+.features h2 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    color: #ff6f61;
+}
+
+.feature {
+    margin-bottom: 2rem;
+}
+
+.feature h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+}
+
+.feature p {
+    color: #666;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+footer {
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    padding: 1rem 0;
+}
+
+@media (min-width: 768px) {
+    .features {
+        display: flex;
+        justify-content: space-around;
+        text-align: left;
+    }
+
+    .feature {
+        max-width: 300px;
+    }
+}
+
+/* Styling for the links */
+a {
+    display: inline-block;
+    text-decoration: none;
+    background-color: #fff;
+    color: #ff6f61;
+    padding: 1rem 2rem;
+    margin: 1rem;
+    display: flex;
+    justify-content: center;
+    border-radius: 8px;
+    border: 2px solid #ff6f61;
+    font-size: 1.2rem;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+a:hover {
+    background-color: #ff6f61;
+    color: #fff;
+    transform: scale(1.05);
+}
+
+/* Optional: make responsive on smaller devices */
+@media (max-width: 500px) {
+    a {
+        width: 80%;
+        text-align: center;
+        font-size: 1rem;
+    }
+}
+/* Form Styling */
+form {
+    background-color: #ffffff;
+    padding: 2rem 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    width: 90%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    margin: 2rem auto;
+}
+
+form label {
+    font-weight: 600;
+    color: #333;
+}
+
+form input,
+form select {
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: border 0.2s ease;
+}
+
+form input:focus,
+form select:focus {
+    border-color: #ff6f61;
+    outline: none;
+}
+
+/* Button styling */
+form button {
+    margin-top: 1.5rem;
+    padding: 0.75rem;
+    background-color: #ff6f61;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+form button:hover {
+    background-color: #e85a4f;
+}
+
+/* Responsive behavior */
+@media (max-width: 500px) {
+    form {
+        padding: 1.5rem;
+    }
+
+    form label,
+    form input,
+    form select,
+    form button {
+        font-size: 0.95rem;
+    }
+}
+
+#logoutBtn {
+    background-color: white;
+    color: #ff6f61;
+    border: none;
+    padding: 1rem 2rem;
+    margin: 1rem;
+    display: flex;
+    justify-content: center;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-size: large;
+    font-weight: bold;
+}  
+
+/* Table styling */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    margin-top: 2rem;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+table thead {
+    background-color: #ff6f61;
+    color: white;
+}
+
+table th, table td {
+    padding: 1rem;
+    text-align: center;
+    border-bottom: 1px solid #ddd;
+}
+
+table tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    nav ul {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    form {
+        padding: 1.5rem;
+    }
+
+    table th, table td {
+        padding: 0.6rem;
+    }
+}
+#mainContent {
+    max-width: 600px;
+    margin: 0 auto;
+    background-color: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+}
+
+h3 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: #2d3436;
+}
+
+/* ---------- Review Form ---------- */
+select,
+textarea {
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 1.2rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1rem;
+    resize: vertical;
+    transition: border 0.2s;
+}
+
+select:focus,
+textarea:focus {
+    border-color: #6c5ce7;
+    outline: none;
+}
+
+#submitBtn {
+    width: 100%;
+    background-color: #6c5ce7;
+    color: white;
+    padding: 0.9rem;
+    border: none;
+    font-size: 1rem;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#submitBtn:hover {
+    background-color: #574b90;
+}
+
+/* ---------- Your Reviews Section ---------- */
+hr {
+    margin: 3rem auto;
+    border: none;
+    border-top: 2px dashed #ccc;
+    max-width: 80%;
+}
+
+ul#myReviews {
+    max-width: 600px;
+    margin: 0 auto;
+    list-style: none;
+    padding: 0;
+}
+
+ul#myReviews li {
+    background-color: #fff;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border-left: 5px solid #6c5ce7;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+ul#myReviews li strong {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #2d3436;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+    nav ul {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    #mainContent {
+        padding: 1.5rem;
+    }
+
+    #submitBtn {
+        padding: 0.8rem;
+    }
+}
+
+#mainHome {
+    display: inline;
+    width: 100%;
+    text-align: left;
+    padding: 2rem 0;
+    text-indent: 50px;
+    margin-top: 150px;
+    line-height: 70px;
+    text-align: justify;
+}
+#home {
+    font-size: 3.5rem;
+    margin-top: 150px;
+}
+#Appointment {
+    text-align: center;
+    font-size: 2.5rem;
+}
+#mainRating {
+    display: inline;
+    width: 100%;
+    text-align: left;
+    padding: 2rem 0;
+    text-indent: 50px;
+    margin-top: 150px;
+    line-height: 70px;
+    text-align: justify;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+#mainRating h3 {
+    font-size: 2.5rem;
+    
+}
+#review {
+    font-size: 2.5rem;
+    text-align: center;
+}
+#mainRating button {
+    background-color: #ff6f61;
+    color: white;
+    padding: 1rem 2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+button.reschedule-btn,
+button.cancel-btn,
+button.pay-btn,
+button.edit-btn,
+button.delete-btn {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-right: 6px;
+}
+
+/* Reschedule Button - Blue */
+button.reschedule-btn {
+  background-color: #007bff;
+  color: #fff;
+}
+button.reschedule-btn:hover {
+  background-color: #0056b3;
+}
+
+/* Cancel Button - Red */
+button.cancel-btn {
+  background-color: #dc3545;
+  color: #fff;
+}
+button.cancel-btn:hover {
+  background-color: #b02a37;
+}
+
+/* Pay Button - Green */
+button.pay-btn {
+  background-color: #28a745;
+  color: #fff;
+}
+button.pay-btn:hover {
+  background-color: #218838;
+}
+/* Edit Button - Orange */
+button.edit-btn {
+  background-color: #fd7e14;
+  color: #fff;
+}
+button.edit-btn:hover {
+  background-color: #e67e22;
+}
+/* Delete Button - Dark Red */  
+button.delete-btn {
+  background-color: #c82333;
+  color: #fff;
+}
+button.delete-btn:hover {
+  background-color: #bd2131;
+}
+#staffHome {
+    display: inline;
+    width: 100%;
+    text-align: left;
+    padding: 2rem 0;
+    font-size: 3.5rem;
+    text-indent: 50px;
+    margin-top: 150px;
+    line-height: 70px;
+    text-align: justify;
+}
+#creview {
+    font-size: 1.5rem;
+    text-align: center;
+}
+#admin {
+    font-size: 3.5rem;
+    margin-top: 150px;
+    padding: 2rem 0;
+    margin-left: 50px;
+
+}
+#salonservices {
+    font-size: 3.5rem;
+    padding: 2rem 0;
+    text-align: center;
+}
+#addservice {
+    font-size: 2.5rem;
+    text-align: center;
+    text-indent: 50px;
+    
+}
+#servicelist {
+    font-size: 2.5rem;
+    text-align: center;
+    text-indent: 50px;
+    
+}
+#addstaff {
+    font-size: 2.5rem;
+    text-align: center;
+    text-indent: 50px;
+}
+#stafflist {
+    font-size: 2.5rem;
+    text-align: center;
+    text-indent: 50px;
+    
+}
+#updateappointment {
+    font-size: 2.5rem;
+    text-align: center;
+    text-indent: 50px;
+    
+}
+#updateappointmentlist {
+    font-size: 2.5rem;
+    text-align: center;
+    text-indent: 50px;
+    
+}
+#workingHoursList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  #workingHoursList li {
+    background-color: #f9f9f9;
+    margin-bottom: 10px;
+    padding: 12px 18px;
+    border-left: 6px solid #4CAF50;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #555;
+    transition: background-color 0.3s ease;
+  }
+  
+  #workingHoursList li:hover {
+    background-color: #f1f1f1;
+  }

@@ -26,13 +26,14 @@ function addStaff() {
     const staffemail = document.getElementById('staffEmail').value.trim();
     const staffphone = document.getElementById('staffPhone').value.trim();
     const specializationId = document.getElementById('specialization').value;
+    const staffpassword = document.getElementById('staffPassword').value.trim();
 
-    if (!staffname || !staffemail || !staffphone || !specializationId) {
+    if (!staffname || !staffemail || !staffphone || !specializationId  || !staffpassword) {
         alert("Please fill in all fields.");
         return;
     }
 
-    const staffData = { staffname, staffemail, staffphone, specializationId };
+    const staffData = { staffname, staffemail, staffphone, specializationId, staffpassword };
     socket.emit('add-staff', staffData);
     socket.emit('get-staff'); // Refresh staff list
 
@@ -55,8 +56,8 @@ function appendStaffRow(staff) {
         <td>${staff.staffphone}</td>
         <td>${staff.specialization?.name || 'N/A'}</td>
         <td>
-            <button onclick="editStaff(${staff.id})">Edit</button>
-            <button onclick="deleteStaff(${staff.id})">Delete</button>
+            <button class="edit-btn" onclick="editStaff(${staff.id})">Edit</button>
+            <button class="delete-btn" onclick="deleteStaff(${staff.id})">Delete</button>
         </td>
     `;
     staffTableBody.appendChild(row);

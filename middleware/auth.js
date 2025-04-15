@@ -1,32 +1,48 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
+const Staff = require("../models/staffMember");
 
-const authenticateSocket = async (socket, next) => {
-    try {
-        const token = socket.handshake.auth?.token; //  Get token from WebSocket handshake
+const authenticateSocket = (socket, callback) => {
+  try {
+    const tokenHeader = socket.handshake?.auth.token;
 
-        const allowedEvents = ["signup", "login"];
-        if (!token && allowedEvents.some(event => socket.eventNames().includes(event))) {
-            console.log(" Allowing unauthenticated signup/login");
-            return next();
-        }
-
-        if (!token) {
-            throw new Error("No token provided");
-        }
-
-        const decoded = jwt.verify(token, "secretkey");
-        const user = await User.findByPk(decoded.userId);
-        if (!user) {
-            throw new Error("User not found");
-        }
-
-        socket.user = user; // Attach user to socket
-        next();
-    } catch (err) {
-        console.error("WebSocket Authentication Error:", err);
-        next(new Error("Authentication failed"));
+    if (!tokenHeader || typeof tokenHeader !== "string") {
+      return callback(new Error("No token provided"));
     }
+
+    // Extract token if in "Bearer <token>" format
+    const token = tokenHeader.startsWith("Bearer ") ? tokenHeader.split(" ")[1] : tokenHeader;
+
+    const decoded = jwt.verify(token, "secretkey"); // You can move "secretkey" to env
+
+    console.log("Decoded JWT:", decoded); // 👈 Check what's inside
+
+    // Determine whether it's a user or staff
+    if (decoded.staffId) {
+        Staff.findByPk(decoded.staffId)
+          .then((staff) => {
+            if (!staff) return callback(new Error("Staff not found"));
+            socket.staff = staff;
+            callback(); // Proceed
+          })
+          .catch((err) => callback(err));
+      } else if (decoded.userId) {
+        User.findByPk(decoded.userId)
+          .then((user) => {
+            if (!user) return callback(new Error("User not found"));
+            socket.user = user;
+            callback(); // Proceed
+          })
+          .catch((err) => callback(err));
+      } else {
+        return callback(new Error("Invalid token structure"));
+      }
+  } catch (err) {
+    console.error("JWT Error:", err.message);
+    callback(new Error("Invalid or expired token"));
+  }
 };
 
-module.exports = { authenticateSocket };
+module.exports = {
+  authenticateSocket
+};

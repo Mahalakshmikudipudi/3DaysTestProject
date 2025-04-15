@@ -1,76 +1,122 @@
-// Connect to the server using socket.io
-const socket = io("http://localhost:3000");
-
-// DOM elements
-const appointmentListContainer = document.getElementById('appointmentList');
-
-// Fetch the appointment list when the page loads
-socket.emit('fetchAppointments');
-
-// Listen for the appointment list from the server
-socket.on('appointmentList', (appointments) => {
-    renderAppointments(appointments);
+const socket = io("http://localhost:3000", {
+    auth: { token: localStorage.getItem("token") } //  Send token
 });
 
-// Function to render appointments in the DOM
-function renderAppointments(appointments) {
-    appointmentListContainer.innerHTML = ''; // Clear the container
+let selectedAppointmentId = null; // Variable to store the selected appointment ID
 
-    appointments.forEach((appointment) => {
-        const appointmentItem = document.createElement('div');
-        appointmentItem.classList.add('appointment-item');
-        appointmentItem.innerHTML = `
-            <h3>Appointment ID: ${appointment.id}</h3>
-            <p><strong>Customer:</strong> ${appointment.customerName}</p>
-            <p><strong>Date:</strong> ${appointment.date}</p>
-            <p><strong>Time:</strong> ${appointment.time}</p>
-            <button class="edit-btn" data-id="${appointment.id}">Edit</button>
-            <button class="delete-btn" data-id="${appointment.id}">Delete</button>
-        `;
+const appointmentList = document.getElementById('appointmentList');
+const assignStaffSelect = document.getElementById('assignStaffSelect');
+const serviceNameInput = document.getElementById('serviceName');
+const staffNameInput = document.getElementById('staffName');
+const dateInput = document.getElementById('appointmentDate');
+const timeInput = document.getElementById('appointmentTime');
 
-        // Append the appointment item to the container
-        appointmentListContainer.appendChild(appointmentItem);
-    });
+// Edit appointment (fetch by id)
+function editAppointment(id) {
+    socket.emit('get-appointment-by-id', id);
 
-    // Attach event listeners to Edit and Delete buttons
-    document.querySelectorAll('.edit-btn').forEach((button) => {
-        button.addEventListener('click', handleEdit);
-    });
+    socket.once('appointment-data', (appointment) => {
+        if (!appointment) {
+            return alert('Appointment not found');
+        }
 
-    document.querySelectorAll('.delete-btn').forEach((button) => {
-        button.addEventListener('click', handleDelete);
+        //console.log("Editing appointment:", appointment);
+
+        selectedAppointmentId = appointment.id;
+
+        // If backend sends nested objects, use those
+        serviceNameInput.value = appointment.service?.name || appointment.serviceName || '';
+        staffNameInput.value = appointment.Staff?.staffname || appointment.staffName || '';
+        dateInput.value = appointment.date;
+        timeInput.value = appointment.time;
+
+        
+        //console.log("Service ID:", appointment.service?.id || appointment.serviceId || '');
+
+        fetchStaffOptions(appointment.serviceId);
+
     });
 }
 
-// Handle Edit button click
-function handleEdit(event) {
-    const appointmentId = event.target.getAttribute('data-id');
-    const newDate = prompt('Enter new date (YYYY-MM-DD):');
-    const newTime = prompt('Enter new time (HH:MM):');
+// Fetch staff using socket
+function fetchStaffOptions(serviceId) {
+    socket.emit('get-staff-by-id', {serviceId});
 
-    if (newDate && newTime) {
-        socket.emit('editAppointment', { id: appointmentId, date: newDate, time: newTime });
+    socket.once('staff-list-id', (staffList) => {
+        assignStaffSelect.innerHTML = '<option value="">Select Staff</option>';
+        staffList.forEach(staff => {
+            const option = document.createElement('option');
+            option.value = staff.id;
+            option.textContent = staff.staffname;
+            assignStaffSelect.appendChild(option);
+        });
+    });
+}
+
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    // Fetch and render appointments using socket
+    function fetchAppointments() {
+        socket.emit('get-appointments');
+
+        socket.once('appointments-data', (appointments) => {
+            appointmentList.innerHTML = '';
+            appointments.forEach(appointment => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                <td>${appointment.id}</td>
+                <td>${appointment.user.name}</td>
+                <td>${appointment.service.name}</td>
+                <td>${appointment.Staff.staffname || 'Not Assigned'}</td>
+                <td>${appointment.date}</td>
+                <td>${appointment.time}</td>
+                <td>
+                    <button class="edit-btn" onclick="editAppointment(${appointment.id})" id="editBtn">Edit</button>
+                </td>
+            `;
+                appointmentList.appendChild(row);
+            });
+        });
     }
-}
 
-// Handle Delete button click
-function handleDelete(event) {
-    const appointmentId = event.target.getAttribute('data-id');
-    const confirmDelete = confirm('Are you sure you want to delete this appointment?');
+    
 
-    if (confirmDelete) {
-        socket.emit('deleteAppointment', { id: appointmentId });
+    document.getElementById('updateBtn').addEventListener('click', () => {
+        updateAppointment();
+    });
+
+    
+
+    // Update appointment with new staff
+    function updateAppointment() {
+        const staffId = assignStaffSelect.value;
+        if (!selectedAppointmentId || !staffId) {
+            return alert('Please select a staff to assign.');
+        }
+
+        socket.emit('update-appointment', {
+            appointmentId: selectedAppointmentId,
+            staffId
+        });
     }
-}
 
-// Listen for updates after editing an appointment
-socket.on('appointmentUpdated', (updatedAppointment) => {
-    alert('Appointment updated successfully!');
-    socket.emit('fetchAppointments'); // Refresh the list
-});
+    // Listen for confirmation and updates
+    socket.on('appointment-updated-success', (updatedAppointment) => {
+        alert('Appointment updated!');
+        fetchAppointments();
+    });
 
-// Listen for updates after deleting an appointment
-socket.on('appointmentDeleted', (deletedAppointmentId) => {
-    alert('Appointment deleted successfully!');
-    socket.emit('fetchAppointments'); // Refresh the list
+    socket.on('appointment-updated', (updated) => {
+        console.log('Real-time update from others:', updated);
+        fetchAppointments();
+    });
+
+    // Initial fetch
+    fetchAppointments();
+
+    socket.on('edit-not-allowed', (msg) => {
+        alert(msg);
+      });
+
 });

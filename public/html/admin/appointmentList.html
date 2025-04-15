@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Appointment List</title>
-    <link rel="stylesheet" href="../css/styles.css">
+    <script defer src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="/public/css/styles.css">
 </head>
+
 <body>
     <header>
         <nav>
@@ -14,31 +17,45 @@
                 <li><a href="/public/html/admin/serviceList.html">Services</a></li>
                 <li><a href="/public/html/admin/staffList.html">Staff</a></li>
                 <li><a href="/public/html/admin/appointmentList.html">Appointments</a></li>
-                <li><a href="/public/html/admin/customersList.html">Customers</a></li>
                 <li><a href="/public/html/admin/workingHours.html">Working Hours</a></li>
-                <button>logout</button>
             </ul>
         </nav>
     </header>
-    <h1>Appointment List</h1>
-    <table id="appointmentTable" border="1">
+    <h2 id="updateappointment">Update Appointment</h2>
+    <form>
+        <label for="serviceName">Service Name:</label>
+        <input type="text" id="serviceName" placeholder="Service Name">
+        <label for="staffName">Staff Name:</label>
+        <input type="text" id="staffName" placeholder="Staff Name">
+        <label for="appointmentDate">Appointment Date:</label>
+        <input type="date" id="appointmentDate" placeholder="Appointment Date">
+        <label for="appointmentTime">Appointment Time:</label>
+        <input type="time" id="appointmentTime" placeholder="Appointment Time">
+        <label for="assignStaff">Assign Staff:</label>
+        <select id="assignStaffSelect"></select>
+        <button id="updateBtn">Update</button>
+    </form>
+
+    <h1 id="updateappointmentlist">Appointment List</h1>
+    <table>
         <thead>
             <tr>
-                <th>ID</th>
-                <th>Name</th>
+                <th>Appointment ID</th>
+                <th>Customer Name</th>
+                <th>Service</th>
+                <th>Staff</th>
                 <th>Date</th>
                 <th>Time</th>
                 <th>Actions</th>
             </tr>
         </thead>
-        <tbody id="appointmentTableBody">
-            <tr id="noAppointmentsRow" style="display: none;">
-                <td colspan="5">No appointments available.</td>
-            <!-- Appointments will be dynamically added here -->
-        </tbody>
+        <tbody id="appointmentList"></tbody>
     </table>
 
-    <script src="../js/admin/appointmentList.js"></script>
-    <script src="../js/customers/bookingAppointment.js"></script>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="/public/js/admin/appointmentList.js"></script>
+    <script src="/public/js/customers/bookingAppointment.js"></script>
+    <script src="/public/js/admin/serviceList.js"></script>
 </body>
+
 </html>

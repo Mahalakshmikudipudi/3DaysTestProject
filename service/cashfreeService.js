@@ -1,4 +1,3 @@
-require("dotenv").config();
 const { Cashfree } = require("cashfree-pg");
 
 Cashfree.XClientId = process.env.CASHFREE_APP_ID;
@@ -23,23 +22,23 @@ exports.createOrder = async (orderId, orderAmount, orderCurrency = "IND", custom
                 customer_phone: customerPhone,
             },
             order_meta: {
-                return_url: `http://localhost:3000/purchase/payment-status?order_id=${orderId}`,
+                return_url: `http://localhost:5000/purchase/payment-status?order_id=${orderId}`,
                 payment_methods: "cc, upi, nb"
             },
             order_expiry_time: formattedExpiryDate
         };
 
-        //console.log(" Sending request to Cashfree:", JSON.stringify(request, null, 2));
+        //console.log("Sending request to Cashfree:", JSON.stringify(request, null, 2));
 
         const response = await Cashfree.PGCreateOrder("2023-08-01", request);
-        //console.log(" Cashfree Response:", response.data.payment_session_id);
+        //console.log("Cashfree Response:", response.data.payment_session_id);
 
         return response.data.payment_session_id;
     } catch (error) {
         if (error.response) {
-            console.error(" Cashfree API Error Response:", error.response.data);
+            console.error("Cashfree API Error Response:", error.response.data);
         } else {
-            console.error(" Error creating order:", error.message);
+            console.error("Error creating order:", error.message);
         }
         throw error;
     }

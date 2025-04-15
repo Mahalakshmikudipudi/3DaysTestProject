@@ -15,6 +15,10 @@ const Staff = sequelize.define('Staff', {
         isEmail: true
       }
     },
+    staffpassword: {
+      type: Sequelize.STRING,
+      allowNull: false
+    },
     staffphone: {
       type: Sequelize.STRING,
       allowNull: false,

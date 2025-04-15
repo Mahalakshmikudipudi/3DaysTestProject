@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rating and Review</title>
+    <script defer src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="/public/css/styles.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/public/html/staff/home.html">Home</a></li>
+                <li><a href="/public/html/staff/ratingandreview.html">Rating and Review</a></li>
+            </ul>
+        </nav>
+    </header>
+    <h1 id="review">Rating and Review</h1>
+    <h2 id="creview">Customer Reviews</h2>
+
+    <ul id="reviewsList">
+        <!-- Example Review Rendered Dynamically -->
+        <!-- Each review will be wrapped in a <li> with id="review-<review.id>" -->
+    </ul>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    
+    <script src="/public/js/staff/ratingandreview.js"></script>
+    <script src="/public/js/customers/rating.js"></script>
+
+    
+
+</body>
+</html>

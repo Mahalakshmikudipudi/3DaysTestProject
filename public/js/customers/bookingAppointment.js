@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bookingForm = document.getElementById('bookingForm');
     const tableBody = document.getElementById('appointmentTableBody');
 
+
     // Fetch service list on focus
     serviceInput.addEventListener('focus', () => {
         socket.emit('get-services');
@@ -45,6 +46,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedDate = dateInput.value;
         const selectedService = serviceInput.value;
 
+        const today = new Date().toISOString().split('T')[0];
+
+        if (selectedDate < today) {
+            alert("You cannot select a past date!");
+            return;
+        }
+
         if (selectedDate && selectedService) {
             socket.emit('get-available-slots', {
                 date: selectedDate,
@@ -55,18 +63,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Populate time slots
     socket.on('available-slots', slots => {
+        const currentDate = new Date();
+        const selectedDate = new Date(dateInput.value);
+
         timeSelect.innerHTML = '<option value="">-- Select Time Slot --</option>';
 
-        if (slots.length === 0) {
+        const filteredSlots = slots.filter(time => {
+            if (selectedDate.toDateString() !== currentDate.toDateString()) return true;
+
+            const [hour, minute] = time.split(':').map(Number);
+            const slotTime = new Date(selectedDate);
+            slotTime.setHours(hour, minute, 0, 0);
+
+            return slotTime > currentDate;
+        });
+
+        if (filteredSlots.length === 0) {
             const option = document.createElement('option');
             option.value = '';
             option.disabled = true;
-            option.textContent = 'No slots available';
+            option.textContent = 'No valid slots available';
             timeSelect.appendChild(option);
             return;
         }
 
-        slots.forEach(time => {
+        filteredSlots.forEach(time => {
             const option = document.createElement('option');
             option.value = time;
             option.textContent = time;
@@ -74,10 +95,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    
+
+
     // Add newly booked appointment to table
-    socket.on('appointment-added', (appointment) => {
-        addAppointmentToTable(appointment);
+    socket.on('appointment-added', (data) => {
+        if (data && data.appointmentId) {
+            localStorage.setItem('appointmentId', data.appointmentId);
+            alert('Appointment booked!');
+        }
+        localStorage.setItem('staffId', data.staffId);
+        addAppointmentToTable(data);
     });
 
     // Get appointments for user on page load
@@ -98,16 +125,16 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.reschedule-btn').forEach(btn => {
             btn.addEventListener('click', handleReschedule);
         });
-    
+
         document.querySelectorAll('.cancel-btn').forEach(btn => {
             btn.addEventListener('click', handleCancel);
         });
-    
-        // document.querySelectorAll('.pay-btn').forEach(btn => {
-        //     btn.addEventListener('click', handlePay);
-        // });
+
+        document.querySelectorAll('.pay-btn').forEach(btn => {
+            btn.addEventListener('click', handlePay);
+        });
     }
-    
+
 
     // Append appointment to table
     function addAppointmentToTable(appointment) {
@@ -117,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const row = document.createElement('tr');
         row.setAttribute('data-id', appointment.id);
+        row.setAttribute('data-service-id', appointment.service?.id);
         row.innerHTML = `
             <td>${appointment.id}</td>
             <td>${appointment.user?.name || '-'}</td>
@@ -133,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let editingAppointmentId = null; // global variable
-    
+
     function handleReschedule(e) {
         e.preventDefault();
         const appointmentId = e.target.dataset.id;
@@ -167,12 +195,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     bookingForm.addEventListener('submit', (e) => {
         e.preventDefault();
-    
+
         const serviceId = serviceInput.value;
         const date = dateInput.value;
         const time = timeSelect.value;
-    
-    
+
+
         if (editingAppointmentId) {
             // Emit update
             socket.emit('reschedule-appointment', {
@@ -190,20 +218,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 time
             });
         }
-    
-    
+
+
         bookingForm.reset();
         editingAppointmentId = null;
         document.getElementById('submitBtn').textContent = "Book Appointment";
-    }); 
-    
+    });
+
+
+
     function handleCancel(e) {
         e.preventDefault();
         const appointmentId = e.target.dataset.id;
-      
+
         const confirmCancel = confirm("Are you sure you want to cancel this appointment?");
         if (confirmCancel) {
-          socket.emit('cancel-appointment', appointmentId);
+            socket.emit('cancel-appointment', appointmentId);
         }
     }
 
@@ -216,40 +246,74 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(message);
     });
 
-    function handlePay(e) {
-        e.preventDefault();
-        const serviceId = serviceInput.value;
-        socket.emit('initiate-payment', { serviceId });
-    }
-    
-    socket.on("payment-initiated", async ({ success, paymentSessionId, orderId, message }) => {
-        if (!success) {
-          return alert("Error: " + message);
-        }
-      
-        const cashfree = Cashfree({ mode: "sandbox" });
-      
-        await cashfree.checkout({
-          paymentSessionId,
-          orderId,
-          redirectTarget: "_modal"
-        });
-      
-        socket.emit("verify-payment", { orderId });
-      });
-      
-      socket.on("payment-checked", ({ success, paymentStatus, token, message }) => {
-        if (!success) return alert("Failed: " + message);
-      
-        if (paymentStatus === "SUCCESS") {
-          alert("🎉 Payment successful! Premium activated!");
-          localStorage.setItem("token", token);
-          showPremiumUserUI(); // Your custom UI update function
-        } else {
-          alert("Payment Status: " + paymentStatus);
-        }
-      
+    const cashfree = Cashfree({
+        mode: "sandbox",
     });
+
+    async function handlePay(e) {
+        e.preventDefault();
+
+        const appointmentId = e.target.dataset.id;
+        const serviceId = e.target.closest('tr').dataset.serviceId;
+        const token = localStorage.getItem("token");
+
+        //console.log("AppointmentId:", appointmentId);
+        //console.log("ServiceId:", serviceId);
+
+
+        // Ask the server to check if payment is already successful
+        socket.emit("check-appointment-payment", { appointmentId });
+
+        socket.once("appointment-payment-status", ({ isPaid }) => {
+            if (isPaid) {
+                alert("Payment already completed for this appointment.");
+                return;
+            }
+
+            // If not paid, continue with payment initiation
+            socket.emit("initiate-payment", { appointmentId, serviceId });
+
+            socket.once("payment-initiated", async ({ paymentSessionId, orderId }) => {
+                try {
+                    const checkoutOptions = {
+                        paymentSessionId,
+                        orderId,
+                        redirectTarget: "_modal"
+                    };
+
+                    await cashfree.checkout(checkoutOptions);
+
+                    // Wait a moment before updating
+                    setTimeout(() => {
+                        socket.emit("update-transaction", { orderId, paymentSessionId });
+                    }, 5000); // Wait 5s for payment status to propagate
+
+                } catch (err) {
+                    console.error("Error during Cashfree checkout:", err);
+                    alert("Payment initiation failed.");
+                }
+            });
+
+            socket.once("payment-error", (data) => {
+                alert("Payment failed: " + data.message);
+            });
+
+            socket.once("transaction-updated", () => {
+                alert("Payment Successful!");
+                window.location.href = "/public/html/customers/bookingAppointment.html";
+            });
+
+            socket.once("transaction-update-failed", (data) => {
+                alert("Payment failed or incomplete: " + data.message);
+            });
+        });
+    }
+
+    socket.on("payment-error", ({ message }) => {
+        alert(`Payment Error: ${message}`);
+    });
+
+
 
     // Debugging error
     socket.on('connect_error', err => {

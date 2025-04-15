@@ -29,7 +29,7 @@ function renderService(service) {
         <td>Rs/-${service.price}</td>
         <td>${service.availability ? 'Yes' : 'No'}</td>
         <td>
-            <button onclick="editService(${service.id})">Edit</button>
+            <button class="edit-btn" onclick="editService(${service.id})">Edit</button>
         </td>
     `;
     serviceTableBody.appendChild(row);

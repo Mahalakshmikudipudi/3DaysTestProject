@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home</title>
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <link rel="stylesheet" href="/public/css/styles.css">
 </head>
 <body>
     <header>
@@ -13,14 +15,16 @@
                 <li><a href="/public/html/customers/bookingAppointment.html">Book Appointment</a></li>
                 <li><a href="/public/html/customers/rating.html">Rating and Review</a></li>
                 <li><a href="/public/html/customers/updateProfile.html">Update Profile</a></li>
-                <button onclick="logout()">logout</button>
+                <button id="logoutBtn" onclick="logout()">Logout</button>
             </ul>
         </nav>
     </header>
-    <main>
-        <h1>Welcome to Customer Dashboard</h1>
+    <main id="mainHome">
+        <h1 id="home">Welcome to Customer Dashboard</h1>
         <p>Here you can manage your appointments, provide feedback, and update your profile.</p>    
         <p>For any assistance, please contact our support team.</p>
     </main>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="/public/js/customers/home.js"></script>
 </body>
 </html>

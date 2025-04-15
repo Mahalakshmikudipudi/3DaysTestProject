@@ -3,8 +3,8 @@ const User = require('../models/user');
 const Staff = require('../models/staffMember');
 const Appointment = require('../models/bookingAppointment');
 const WorkingHours = require('../models/workingHours'); // Assuming you have a model for working hours
-const { getWeekday } = require('../service/helper'); // Utility function to get the weekday from a date
-const { generateSlots } = require('../service/slotGenerator'); // Function to generate time slots based on working hours and service duration
+const bcrypt = require("bcrypt");
+const sendEmail = require('../service/sendEmail'); // Assuming you have a function to send emails
 
 const addService = async (io, socket, data) => {
     try {
@@ -48,15 +48,21 @@ const updateService = async (io, socket, data) => {
 
 const addStaff = async (io, socket, data) => {
     try {
-        const { staffname, staffemail, staffphone, specializationId } = data;
+        const { staffname, staffemail, staffphone, staffpassword, specializationId } = data;
+        const userId = socket.user.id; // Assuming user ID is stored in socket.user
+        // Hash the password before saving
+        const hashedPassword = await bcrypt.hash(staffpassword, 10);
 
-        // Create new staff member
+        // Create staff
         const newStaff = await Staff.create({
             staffname,
             staffemail,
             staffphone,
-            specializationId
+            staffpassword: hashedPassword,
+            specializationId,
+            userId
         });
+
 
         // Emit the newly created staff member to all clients
         io.emit('staff-added', newStaff);
@@ -139,72 +145,122 @@ const getWorkingHours = async (io, socket) => {
     }
 };
 
-const getAvailableSlots = async (io, socket, { date, time, serviceId }) => {
-    try {
-        const service = await Service.findByPk(serviceId);
-        if (!service) return socket.emit("available-slots", []);
-  
-        const appointments = await Appointment.findAll({ where: { date, serviceId } });
-        const bookedTimes = appointments.map(a => a.time.slice(0, 5)); // "10:00:00" → "10:00"
-
-  
-        const day = getWeekday(date);
-        const workingHours = await WorkingHours.findOne({ where: { day } });
-        const duration = parseInt(service.duration) || 30; // Default to 30 minutes if not set
-  
-        const allSlots = generateSlots(workingHours, duration, bookedTimes);
-
-        const availableSlots = allSlots.filter(slot => !bookedTimes.includes(slot));
-
-        socket.emit('available-slots', availableSlots);
-      } catch (err) {
-        console.error('Error fetching available slots:', err);
-        socket.emit("available-slots", []);
-      }
-  
-}
-
-const bookAppointment = async (io, socket, { serviceId, date, time, status }) => {
-    try {
-        const userId = socket.user.id; // Assuming user ID is stored in socket.user
-        const appointment = await Appointment.create({ userId, serviceId, date, time, status: 'pending' });
-        const fullAppointment = await Appointment.findByPk(appointment.id, {
-            include: [User, Service]
-        });
-        io.emit('appointment-added', fullAppointment); // broadcast
-    } catch (err) {
-        console.error("Error booking appointment:", err);
-    }
-}
-const getAppointments = async (io, socket) => {
+const getAllAppointments = async (io, socket) => {
     try {
         const appointments = await Appointment.findAll({
-          where: { userId:socket.user.id },
-          include: [User, { model: Service, as: 'service', attributes: ['name']}],
+            include: [
+                { model: User, attributes: ['name', 'email'] },
+                { model: Staff, attributes: ['staffname'] },
+                { model: Service, as: 'service', attributes: ['name'] }
+            ]
         });
-        socket.emit('user-appointment-list', appointments);
-      } catch (err) {
-        console.error("Error fetching user appointments:", err);
-        socket.emit('user-appointment-list', []);
-      }
-};
+        socket.emit('appointments-data', appointments);
+    } catch (error) {
+        console.error('Error fetching appointments:', error);
+        socket.emit('error', 'Failed to fetch appointments.');
+    }
+}
 
-const rescheduleAppointment = async (io, socket, { appointmentId, newDate, newTime, newServiceId }) => {
+const getAppointmentById = async(io, socket, id) => {
     try {
-        const updated = await Appointment.update(
-            { date: newDate, time: newTime, serviceId: newServiceId },
-            { where: { id: appointmentId } }
-        );
+        const appointment = await Appointment.findByPk(id, {
+            include: [
+                { model: User, attributes: ['name', 'email'] },
+                { model: Staff, attributes: ['staffname'] },
+                { model: Service, as: 'service', attributes: ['name'] }
+            ]
+        });
 
-        // const refreshed = await Appointment.findByPk(appointmentId, {
-        //     include: [User, Service]
-        // });
+        if (!appointment) {
+            socket.emit('error', 'Appointment not found.');
+            return;
+        }
 
-        socket.emit('appointment-rescheduled', updated);
-    } catch (err) {
-        console.error("Error rescheduling:", err);
+        if (appointment.status === 'completed') {
+            return socket.emit('edit-not-allowed', 'This appointment is already completed and cannot be edited.');
+          }
+
+        socket.emit('appointment-data', appointment);
+    } catch (error) {
+        console.error('Error fetching appointment:', error);
+        socket.emit('error', 'Failed to fetch appointment.');
     }
 };
+
+const getStaffById = async(io, socket, data) => {
+    try {
+        const { serviceId } = data;
+        //console.log("Service ID:", serviceId);
+        const service = await Service.findByPk(serviceId);
+        if (!service) return socket.emit('error', 'Invalid service');
+
+        //console.log("Service:", service);
+    
+        const specializationId = service.id;
+    
+        const staffList = await Staff.findAll({
+          where: { specializationId }
+        });
+    
+        socket.emit('staff-list-id', staffList);
+      } catch (err) {
+        console.error('Error fetching staff:', err);
+        socket.emit('error', 'Could not fetch staff');
+      }
+}
+
+const updateAppointment = async(io, socket, data) => {
+    try {
+        // Step 1: Update DB
+        const { appointmentId, staffId } = data;
+        console.log("Appointment ID:", appointmentId);
+        const appointment = await Appointment.findByPk(appointmentId, {
+              include: [
+                { model: User, attributes: ['name', 'email'] },
+                { model: Staff, attributes: ['staffname'] },
+                { model: Service, as: 'service', attributes: ['name'] }
+              ]
+        });
+  
+        if (!appointment) {
+          return socket.emit('error', 'Appointment not found');
+        }
+  
+        // Update staff assignment
+        appointment.assignedStaffId = staffId;
+        await appointment.save();
+
+        const staff = await Staff.findByPk(staffId);
+
+  
+        await sendEmail({
+              to: appointment.user.email,
+              subject: 'Appointment Updated',
+              html: `
+                <h2>Hello ${appointment.user.name},</h2>
+                <h1>Appointment Updated.</h1>
+                <h3>Details:</h3>
+                <ul>
+                    <li><strong>Service:</strong> ${appointment.service.name}</li>
+                    <li><strong>Date:</strong> ${appointment.date}</li>
+                    <li><strong>Time:</strong> ${appointment.time}</li>
+                    <li><strong>Staff:</strong> ${staff.staffname}</li>
+                </ul>
+                <p>Thank you!</p>
+              `
+            });
+  
+        // Step 3: Emit confirmation to the requester
+        socket.emit('appointment-updated-success', appointment);
+  
+        // Step 4: Broadcast to others (admin/customer side updates)
+        socket.broadcast.emit('appointment-updated', appointment);
+    } catch (err) {
+        console.error("Error updating appointment:", err);
+        socket.emit('error', 'Error updating appointment');
+    }
+}
+
 
 
 
@@ -218,8 +274,9 @@ module.exports = {
     deleteStaff,
     addWorkingHours,
     getWorkingHours,
-    getAvailableSlots,
-    bookAppointment,
-    getAppointments,
-    rescheduleAppointment
+    getAllAppointments,
+    getAppointmentById,
+    getStaffById,
+    updateAppointment
+    
 };
