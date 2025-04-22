@@ -106,7 +106,7 @@ Appointment.hasMany(Order, { foreignKey: 'appointmentId' });
 // Sync database and start the server
 sequelize.sync()
   .then(() => {
-    server.listen(3000, () => { // Use `server.listen` instead of `app.listen`
+    server.listen(process.env.PORT, () => { // Use `server.listen` instead of `app.listen`
       console.log(`Server running on localhost 3000`);
     });
   })
