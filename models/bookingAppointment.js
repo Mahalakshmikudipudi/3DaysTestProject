@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-const sequelize = require('../util/database');
+const sequelize = require('../config/database');
 const User = require('../models/user');
 const Staff = require('../models/staffMember');
 
@@ -24,7 +24,12 @@ const Appointment = sequelize.define('Appointment', {
     isPaid: {
       type: Sequelize.BOOLEAN,
       defaultValue: false
+    },
+    isStaffAvailable: {
+      type: Sequelize.BOOLEAN,
+      defaultValue: true,
     }
+    
 });
 
 module.exports = Appointment;

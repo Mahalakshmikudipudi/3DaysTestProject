@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Signup</title>
-    <script defer src="http://localhost:3000/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="/public/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
     <form onsubmit="signup(event)">
@@ -26,10 +25,13 @@
         <button>Sign Up</button>
         
     </form>
-    <a href="/public/html/login.html">
-        Existing User - Login Now
-    </a>    
+    <div id="anchorLinks">
+        <a href="/html/login.html">
+            Existing User - Login Now
+        </a>   
+    </div>
+     
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/public/js/signup.js"></script>
+    <script src="/js/signup.js"></script>
 </body>
 </html>

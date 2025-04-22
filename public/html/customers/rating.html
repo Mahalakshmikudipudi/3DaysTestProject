@@ -5,18 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rating and Review</title>
-    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
-    <link rel="stylesheet" href="/public/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css">
 </head>
 
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="/public/html/customers/home.html">Home</a></li>
-                <li><a href="/public/html/customers/bookingAppointment.html">Book Appointment</a></li>
-                <li><a href="/public/html/customers/rating.html">Rating and Review</a></li>
-                <li><a href="/public/html/customers/updateProfile.html">Update Profile</a></li>
+                <li><a href="/html/customers/home.html" class="nav-link">Home</a></li>
+                <li><a href="/html/customers/bookingAppointment.html" class="nav-link">Book Appointment</a></li>
+                <li><a href="/html/customers/rating.html" class="nav-link active">Rating and Review</a></li>
+                <li><a href="/html/customers/updateProfile.html" class="nav-link">Update Profile</a></li>
             </ul>
         </nav>
     </header>
@@ -39,9 +38,18 @@
 
         <h3 id="review">Your Reviews</h3>
         <ul id="myReviews"></ul>
-        <script src="/public/js/customers/rating.js"></script>
+
+        <div id="pagination-controls">
+            <button id="prevPage">Previous</button>
+            <span id="pageIndicator">Page 1</span>
+            <button id="nextPage">Next</button>
+        </div>
+          
+
+
+        <script src="/js/customers/rating.js"></script>
         <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-        <script src="/public/js/customers/bookingAppointment.js"></script>
+        <script src="/js/customers/bookingAppointment.js"></script>
 </body>
 
 </html>

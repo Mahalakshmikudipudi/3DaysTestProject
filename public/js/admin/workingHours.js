@@ -39,12 +39,32 @@ socket.on('working-hours-list', (workingHours) => {
 // Function to update the working hours list in the UI
 function updateWorkingHoursList(data) {
     const workingHoursList = document.getElementById('workingHoursList');
-    const newWorkingHour = document.createElement('li');
-    newWorkingHour.textContent = `${data.day}: ${data.startTime} - ${data.endTime}`;
-    workingHoursList.appendChild(newWorkingHour);
+
+    const listItem = document.createElement('li');
+    listItem.innerHTML = `
+        <strong>${data.day}</strong>: ${data.startTime} - ${data.endTime}
+        <button class="edit-btn" onclick="editWorkingHours('${data.day}', '${data.startTime}', '${data.endTime}')">Edit</button>
+    `;
+
+    workingHoursList.appendChild(listItem);
 }
+
+function editWorkingHours(day, currentStart, currentEnd) {
+    const newStart = prompt(`Enter new start time for ${day}`, currentStart);
+    const newEnd = prompt(`Enter new end time for ${day}`, currentEnd);
+
+    if (newStart && newEnd) {
+        socket.emit('update-working-hours', {
+            day: day,
+            startTime: newStart,
+            endTime: newEnd
+        });
+    }
+}
+
 
 // Listen for confirmation from the server and update the UI
 socket.on('working-hours-updated', (data) => {
-    updateWorkingHoursList(data);
+    socket.emit('get-working-hours');
 });
+

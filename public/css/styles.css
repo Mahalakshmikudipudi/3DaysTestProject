@@ -6,41 +6,72 @@
 }
 
 body {
-    background-color: #a6afa0;
+    background-color: #dee7d8;
     color: #333;
     line-height: 1.6;
 }
 
 header {
-    background-color: #ff6f61;
-    padding: 1rem 2rem;
+    background-color: #868580;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    justify-content: flex-end;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    grid-template-rows: 1fr auto;
 }
-
 nav ul {
     list-style: none;
-    display: flex;
-    justify-content: flex-end;
+    display: flex;    
 }
 
 nav li {
     margin-left: 1rem;
+    
+}
+.nav-link.active {
+    border-bottom: 2px solid #882196;
 }
 
-nav a button {
-    background-color: #fff;
-    color: #ff6f61;
-    border: 2px solid #fff;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
+nav a {
     cursor: pointer;
-    transition: all 0.3s ease;
+    position: relative;
+    text-decoration: none;
+    display: inline-block;
+    text-decoration: none;
+    color: white;
+    padding: 1rem 2rem;
+    margin: 1rem;
+    justify-content: flex-end;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    align-items: flex-end;
 }
 
-nav a button:hover {
-    background-color: transparent;
-    color: #fff;
-    border: 2px solid #fff;
+nav button {
+    justify-content: flex-end;
+    padding-left: 50px;
+}
+
+.header-btn {
+    margin-right: 100px; /* Optional if you later add content on the right */
+}
+
+.signin-btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #007bff;
+    border: none;
+    border-radius: 25px;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.signin-btn:hover {
+    background-color: #0056b3;
+    transform: translateY(-2px);
 }
 
 .hero {
@@ -118,29 +149,56 @@ footer {
     }
 }
 
-/* Styling for the links */
-a {
-    display: inline-block;
-    text-decoration: none;
-    background-color: #fff;
-    color: #ff6f61;
-    padding: 1rem 2rem;
-    margin: 1rem;
+#anchorLinks {
+    margin-top: 15px;
+    text-align: center;
     display: flex;
-    justify-content: center;
-    border-radius: 8px;
-    border: 2px solid #ff6f61;
-    font-size: 1.2rem;
-    font-weight: bold;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    flex-direction: column;
+    align-items: center;
+    
 }
 
-a:hover {
-    background-color: #ff6f61;
-    color: #fff;
-    transform: scale(1.05);
+#anchorLinks a {
+    color: #007bff;
+    text-decoration: none;
+    font-size: 14px;
+    text-decoration: none;
+    padding: 12px 30px;
+    font-size: 18px;
+    border-radius: 8px;
+    background-color: #288810;
+    color: white;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
+
+#anchorLinks a:hover {
+    text-decoration: underline;
+}
+
+#Options {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    margin-top: 200px;
+}
+
+.option-btn {
+    text-decoration: none;
+    padding: 12px 30px;
+    font-size: 18px;
+    border-radius: 8px;
+    background-color: #3f444b;
+    color: white;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.option-btn:hover {
+    background-color: #131414;
+    transform: translateY(-2px);
+}
+
+
 
 /* Optional: make responsive on smaller devices */
 @media (max-width: 500px) {
@@ -187,7 +245,7 @@ form select:focus {
 form button {
     margin-top: 1.5rem;
     padding: 0.75rem;
-    background-color: #ff6f61;
+    background-color: #1f53a0;
     color: white;
     border: none;
     border-radius: 6px;
@@ -198,7 +256,7 @@ form button {
 }
 
 form button:hover {
-    background-color: #e85a4f;
+    background-color: #23399b;
 }
 
 /* Responsive behavior */
@@ -216,20 +274,21 @@ form button:hover {
 }
 
 #logoutBtn {
-    background-color: white;
-    color: #ff6f61;
+    background-color: red;
+    color: white;
     border: none;
-    padding: 1rem 2rem;
+    padding: 8px 15px;
     margin: 1rem;
     display: flex;
-    justify-content: center;
-    border-radius: 2px;
+    justify-content: flex-end;
+    border-radius: 10px;
     cursor: pointer;
     transition: background-color 0.3s ease;
     font-size: large;
     font-weight: bold;
-}  
 
+}  
+    
 /* Table styling */
 table {
     width: 100%;
@@ -450,12 +509,13 @@ button.cancel-btn:hover {
 }
 
 /* Pay Button - Green */
-button.pay-btn {
-  background-color: #28a745;
+button.update-btn {
+  background-color: #0eaaa2;
   color: #fff;
+  cursor: pointer;
 }
-button.pay-btn:hover {
-  background-color: #218838;
+button.update-btn:hover {
+  background-color: #0f7880;
 }
 /* Edit Button - Orange */
 button.edit-btn {
@@ -554,4 +614,43 @@ button.delete-btn:hover {
   
   #workingHoursList li:hover {
     background-color: #f1f1f1;
+  }
+  #pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+
+  #pagination-controls button {
+    padding: 8px 16px;
+    font-size: 14px;
+    border: none;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  #pagination-controls button:hover {
+    background-color: #45a049;
+  }
+
+  #pagination-controls button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+
+  #pageIndicator {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
+  }
+  #staffPageIndicator {
+    font-weight: bold;
+    font-size: 16px;
+    color: #333;
   }

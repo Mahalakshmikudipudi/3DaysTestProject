@@ -13,7 +13,7 @@ function logout() {
       socket.on("logoutSuccess", (msg) => {
         alert(msg || "Logged out successfully via socket!");
         localStorage.removeItem("token");
-        window.location.href = "/public/html/home.html"; // Redirect
+        window.location.href = "/html/home.html"; // Redirect
       });
 
       // If error comes back

@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-const sequelize = require('../util/database');
+const sequelize = require('../config/database');
 const User = require('../models/user'); // Assuming you have a User model
 
 

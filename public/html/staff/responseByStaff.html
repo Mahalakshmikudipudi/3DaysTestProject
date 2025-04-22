@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rating and Review</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/html/staff/home.html" class="nav-link">Home</a></li>
+                <li><a href="/html/staff/responseByStaff.html" class="nav-link active">Rating and Review</a></li>
+                <li><a href="/html/staff/appointmentListStaff.html" class="nav-link">Appointments</a></li>
+            </ul>
+        </nav>
+    </header>
+    <h1 id="review">Rating and Review</h1>
+    <h2 id="creview">Customer Reviews</h2>
+
+    <ul id="reviewsList">
+        <!-- Example Review Rendered Dynamically -->
+        <!-- Each review will be wrapped in a <li> with id="review-<review.id>" -->
+    </ul>
+
+    <div id="pagination-controls">
+        <button id="prevPage">Previous</button>
+        <span id="pageIndicator">Page 1</span>
+        <button id="nextPage">Next</button>
+    </div>
+      
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    
+    <script src="/js/staff/responseByStaff.js"></script>
+    <script src="/js/customers/rating.js"></script>
+
+    
+
+</body>
+</html>

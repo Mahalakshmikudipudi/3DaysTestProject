@@ -5,37 +5,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Appointment List</title>
-    <script defer src="http://localhost:3000/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="/public/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css">
 </head>
 
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="/public/html/admin/home.html">Home</a></li>
-                <li><a href="/public/html/admin/serviceList.html">Services</a></li>
-                <li><a href="/public/html/admin/staffList.html">Staff</a></li>
-                <li><a href="/public/html/admin/appointmentList.html">Appointments</a></li>
-                <li><a href="/public/html/admin/workingHours.html">Working Hours</a></li>
+                <li><a href="/html/admin/home.html" class="nav-link">Home</a></li>
+                <li><a href="/html/admin/serviceList.html" class="nav-link">Services</a></li>
+                <li><a href="/html/admin/staffList.html" class="nav-link">Staff</a></li>
+                <li><a href="/html/admin/appointmentList.html" class="nav-link active">Appointments</a></li>
+                <li><a href="/html/admin/responseByAdmin.html" class="nav-link">Reviews and Responses</a></li>
+                <li><a href="/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
             </ul>
         </nav>
     </header>
-    <h2 id="updateappointment">Update Appointment</h2>
-    <form>
-        <label for="serviceName">Service Name:</label>
-        <input type="text" id="serviceName" placeholder="Service Name">
-        <label for="staffName">Staff Name:</label>
-        <input type="text" id="staffName" placeholder="Staff Name">
-        <label for="appointmentDate">Appointment Date:</label>
-        <input type="date" id="appointmentDate" placeholder="Appointment Date">
-        <label for="appointmentTime">Appointment Time:</label>
-        <input type="time" id="appointmentTime" placeholder="Appointment Time">
-        <label for="assignStaff">Assign Staff:</label>
-        <select id="assignStaffSelect"></select>
-        <button id="updateBtn">Update</button>
-    </form>
-
     <h1 id="updateappointmentlist">Appointment List</h1>
     <table>
         <thead>
@@ -46,6 +31,7 @@
                 <th>Staff</th>
                 <th>Date</th>
                 <th>Time</th>
+                <th>Avaiability</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -53,9 +39,9 @@
     </table>
 
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/public/js/admin/appointmentList.js"></script>
-    <script src="/public/js/customers/bookingAppointment.js"></script>
-    <script src="/public/js/admin/serviceList.js"></script>
+    <script src="/js/admin/appointmentList.js"></script>
+    <script src="/js/customers/bookingAppointment.js"></script>
+    <script src="/js/admin/serviceList.js"></script>
 </body>
 
 </html>

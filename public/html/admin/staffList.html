@@ -1,29 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Staff List</title>
-    <script defer src="http://localhost:3000/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="/public/css/styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff List</title>
+  <link rel="stylesheet" href="/css/styles.css">
 </head>
+
 <body>
-    <header>
-        <nav>
-            <ul>
-                <li><a href="/public/html/admin/home.html">Home</a></li>
-                <li><a href="/public/html/admin/serviceList.html">Services</a></li>
-                <li><a href="/public/html/admin/staffList.html">Staff</a></li>
-                <li><a href="/public/html/admin/appointmentList.html">Appointments</a></li>
-                <li><a href="/public/html/admin/workingHours.html">Working Hours</a></li>
-            </ul>
-        </nav>
-    </header>
-    <h2 id="addstaff">Add New Staff Member</h2>
-    <form>
-      <label for="staffName">Enter Name:</label>
+  <header>
+    <nav>
+      <ul>
+        <li><a href="/html/admin/home.html" class="nav-link">Home</a></li>
+        <li><a href="/html/admin/serviceList.html" class="nav-link">Services</a></li>
+        <li><a href="/html/admin/staffList.html" class="nav-link active">Staff</a></li>
+        <li><a href="/html/admin/appointmentList.html" class="nav-link">Appointments</a></li>
+        <li><a href="/html/admin/responseByAdmin.html" class="nav-link">Reviews and Responses</a></li>
+        <li><a href="/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
+      </ul>
+    </nav>
+  </header>
+  <h2 id="addstaff">Add New Staff Member</h2>
+  <form onsubmit="addStaff(event)">
+    <label for="staffName">Enter Name:</label>
     <input type="text" id="staffName" placeholder="Name">
-    <label for="staffEmail">Enter Email:</label>    
+    <label for="staffEmail">Enter Email:</label>
     <input type="email" id="staffEmail" placeholder="Email">
     <label for="staffPhone">Enter Phone:</label>
     <input type="text" id="staffPhone" placeholder="Phone">
@@ -33,29 +35,48 @@
     <select id="specialization" onfocus="fetchServices()">
       <option value="">-- Select Service --</option>
     </select>
-    <button onclick="addStaff()" id="submitBtn" style="display: block;">Add Staff</button>
+    <label for="time">Start Time:</label>
+    <input type="time" name="startTime" id="startTime" required>
+    <label for="time">End Time:</label>
+    <input type="time" name="endTime" id="endTime" required>
+    <label for="availability">Availability:</label>
+    <select id="availability">
+      <option value="1">Available</option>
+      <option value="0">Unavailable</option>
+    </select>
 
-    </form>
-    
-    <h2 id="stafflist">Staff List</h2>
-<table border="1">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Name</th>
-      <th>Email</th>
-      <th>Phone</th>
-      <th>Specialization</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody id="staffList"></tbody>
-</table>
+    <button type="submit" id="submitBtn" style="display: block;">Add Staff</button>
 
+  </form>
 
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/public/js/admin/staffList.js"></script>
-    <script src="/public/js/admin/serviceList.js"></script>
+  <h2 id="stafflist">Staff List</h2>
+  <table border="1">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Specialization</th>
+        <th>Start Time</th>
+        <th>End Time</th>
+        <th>Availability</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="staffList"></tbody>
+  </table>
+
+  <div class="pagination-controls">
+    <button id="prevPage">Previous</button>
+    <span id="pageIndicator">Page 1</span>
+    <button id="nextPage">Next</button>
+ </div>
+
+  <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+  <script src="/js/admin/staffList.js"></script>
+  <script src="/js/admin/serviceList.js"></script>
 
 </body>
+
 </html>

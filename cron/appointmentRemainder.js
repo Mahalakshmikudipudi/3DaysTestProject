@@ -6,17 +6,22 @@ const Staff = require('../models/staffMember');
 const Service = require('../models/services');
 const sendEmail = require('../service/sendEmail'); // Assuming you have a service to send emails
 
-const appointmentReminderJob = cron.schedule('*/1 * * * *', async () => {
+const appointmentReminderJob = cron.schedule('* * * * *', async () => {
     try {
+      console.log('Cron job triggered at', new Date().toLocaleString());
+
       const now = new Date();
       const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
   
       const reminderDate = oneHourLater.toISOString().split('T')[0];
       const reminderTime = oneHourLater.toTimeString().slice(0, 5); // "HH:MM"
+
+      console.log('Checking for appointments at', reminderDate, reminderTime);
+
   
       const upcomingAppointments = await Appointment.findAll({
         where: {
-          status: 'pending',
+          status: 'confirmed',
           date: reminderDate,
           time: reminderTime,
         },
@@ -26,6 +31,8 @@ const appointmentReminderJob = cron.schedule('*/1 * * * *', async () => {
           { model: Service, as: 'service' },
         ],
       });
+
+      console.log('Appointments found:', upcomingAppointments.length);
   
       for (const appt of upcomingAppointments) {
         await sendEmail({

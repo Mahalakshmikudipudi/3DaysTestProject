@@ -3,29 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home</title>
+    <title>Rating and Review</title>
     <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="/html/admin/home.html" class="nav-link active">Home</a></li>
+                <li><a href="/html/admin/home.html" class="nav-link">Home</a></li>
                 <li><a href="/html/admin/serviceList.html" class="nav-link">Services</a></li>
                 <li><a href="/html/admin/staffList.html" class="nav-link">Staff</a></li>
                 <li><a href="/html/admin/appointmentList.html" class="nav-link">Appointments</a></li>
-                <li><a href="/html/admin/responseByAdmin.html" class="nav-link">Reviews and Responses</a></li>
+                <li><a href="/html/admin/responseByAdmin.html" class="nav-link active">Reviews and Responses</a></li>
                 <li><a href="/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
-                <button id="logoutBtn" onclick="logout()">Logout</button>
             </ul>
         </nav>
     </header>
+    <h1 id="review">Rating and Review</h1>
+    <h2 id="creview">Customer Reviews</h2>
 
-    <main>
-        <h1 id="admin">Welcome to Admin Dashboard</h1>
-        
-    </main>
+    <ul id="reviewsList">
+        <!-- Example Review Rendered Dynamically -->
+        <!-- Each review will be wrapped in a <li> with id="review-<review.id>" -->
+    </ul>
+
+    <div id="pagination-controls">
+        <button id="prevPage">Previous</button>
+        <span id="pageIndicator">Page 1</span>
+        <button id="nextPage">Next</button>
+    </div>
+      
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/js/admin/home.js"></script>
+    
+    <script src="/js/admin/responseByAdmin.js"></script>
+    
+
+    
+
 </body>
 </html>

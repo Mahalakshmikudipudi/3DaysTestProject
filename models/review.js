@@ -1,6 +1,6 @@
 // models/Review.js
 const { DataTypes } = require('sequelize');
-const sequelize = require('../util/database');
+const sequelize = require('../config/database');
 const User = require('../models/user');
 const Staff = require('../models/staffMember');
 const Appointment = require('../models/bookingAppointment');
@@ -15,7 +15,7 @@ const Review = sequelize.define('Review', {
     type: DataTypes.TEXT,
     allowNull: false
   },
-  staffResponse: {
+  Response: {
     type: DataTypes.TEXT,
     allowNull: true
   }

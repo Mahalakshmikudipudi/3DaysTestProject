@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-const sequelize = require('../util/database');
+const sequelize = require('../config/database');
 const Service = require('../models/services');
 
 const Staff = sequelize.define('Staff', {
@@ -31,7 +31,14 @@ const Staff = sequelize.define('Staff', {
         model: Service, // Refers to table name
         key: 'id'
       }
-    }
+    },
+    isAvailable: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: true,
+    },
+    startTime: Sequelize.TIME, // Availability start
+    endTime: Sequelize.TIME,   // Availability end
   });
 
   module.exports = Staff;

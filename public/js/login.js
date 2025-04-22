@@ -17,9 +17,9 @@ async function login(e) {
             alert("Login successful");
             localStorage.setItem("token", data.token); // Store token in localStorage
             if(data.role === "Admin"){
-                window.location.href = "../html/admin/home.html"; // Redirect to admin home page
+                window.location.href = "/html/admin/home.html"; // Redirect to admin home page
             } else if(data.role === "Customer"){
-                window.location.href = "../html/customers/home.html"; // Redirect to customer home page
+                window.location.href = "/html/customers/home.html"; // Redirect to customer home page
             }
         } else {
             alert(data.message);

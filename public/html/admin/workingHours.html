@@ -1,23 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Working Hours</title>
-    <script defer src="http://localhost:3000/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="/public/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css">
 </head>
-<body><header>
-    <nav>
-        <ul>
-            <li><a href="/public/html/admin/home.html">Home</a></li>
-            <li><a href="/public/html/admin/serviceList.html">Services</a></li>
-            <li><a href="/public/html/admin/staffList.html">Staff</a></li>
-            <li><a href="/public/html/admin/appointmentList.html">Appointments</a></li>
-            <li><a href="/public/html/admin/workingHours.html">Working Hours</a></li>
-        </ul>
-    </nav>
-</header>
+
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/html/admin/home.html" class="nav-link">Home</a></li>
+                <li><a href="/html/admin/serviceList.html" class="nav-link">Services</a></li>
+                <li><a href="/html/admin/staffList.html" class="nav-link">Staff</a></li>
+                <li><a href="/html/admin/appointmentList.html" class="nav-link">Appointments</a></li>
+                <li><a href="/html/admin/responseByAdmin.html" class="nav-link">Reviews and Responses</a></li>
+                <li><a href="/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
+            </ul>
+        </nav>
+    </header>
 
     <form id="workingHours">
         <label for="day">Day:</label>
@@ -28,7 +31,7 @@
             <option value="Thursday">Thursday</option>
             <option value="Friday">Friday</option>
             <option value="Saturday">Saturday</option>
-            <option value="Sunday">Sunday</option>  
+            <option value="Sunday">Sunday</option>
         </select><br><br>
         <label for="startTime">Start Time:</label>
         <input type="time" id="startTime" name="startTime" required><br><br>
@@ -39,10 +42,11 @@
     <main>
         <h1>Working Hours</h1>
         <ul id="workingHoursList"></ul>
-       
+
     </main>
 
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/public/js/admin/workingHours.js"></script>
+    <script src="/js/admin/workingHours.js"></script>
 </body>
+
 </html>

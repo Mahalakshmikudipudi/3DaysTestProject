@@ -15,15 +15,112 @@ function getUserIdFromToken() {
     }
 };
 
+function convertTo12HourFormat(time24) {
+    const [hour, minute] = time24.split(':');
+    const hourInt = parseInt(hour);
+    const period = hourInt >= 12 ? 'PM' : 'AM';
+    const hour12 = hourInt % 12 === 0 ? 12 : hourInt % 12;
+    return `${hour12}:${minute} ${period}`;
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
-    const dateInput = document.getElementById("date");
-    const serviceInput = document.getElementById("service");
-    const timeSelect = document.getElementById("time");
-    const bookingForm = document.getElementById('bookingForm');
+
+    const timeInput = document.getElementById("timeInput");
+    const timeOptions = document.getElementById("timeOptions");
+    const serviceInput = document.getElementById('service');
+    const staffInput = document.getElementById('staff');
     const tableBody = document.getElementById('appointmentTableBody');
+    const dateInput = document.getElementById('date');
+    const timeDropdown = document.getElementById("timeDropdown");
+    const fromTimeInput = document.getElementById("fromTime");
+    const toTimeInput = document.getElementById("toTime");
+    const searchBtn = document.getElementById("searchSlotsBtn");
+
+    searchBtn.addEventListener("click", () => {
+        const date = document.getElementById("date").value;
+        const serviceId = serviceInput.value;
+        const staffId = staffInput.value;
+        const fromTime = fromTimeInput.value;
+        const toTime = toTimeInput.value;
 
 
-    // Fetch service list on focus
+        if (!date || !serviceId || !fromTime || !toTime) {
+            alert("Please fill in all fields.");
+            return;
+        }
+
+        // Emit socket event to fetch available slots
+        socket.emit("get-available-slots", {
+            serviceId,
+            staffId,
+            date,
+            fromTime,
+            toTime
+        });
+    });
+
+    socket.on("availableSlotsResult", (slots) => {
+        // Get selected date and today's date
+        const selectedDate = document.getElementById("date").value;
+        const today = new Date().toISOString().split("T")[0];
+        const now = new Date();
+    
+        // Clear previous options
+        timeDropdown.innerHTML = '<option value="">-- Select Time Slot --</option>';
+    
+        // Filter out past time slots if selected date is today
+        const filteredSlots = slots.filter(slot => {
+            if (selectedDate !== today) return true;
+    
+            const [hours, minutes] = slot.split(":").map(Number);
+            const slotTime = new Date();
+            slotTime.setHours(hours, minutes, 0, 0);
+            return slotTime > now;
+        });
+    
+        filteredSlots.forEach(slot => {
+            const option = document.createElement("option");
+            option.value = slot;
+            option.textContent = convertTo12HourFormat(slot);
+            timeDropdown.appendChild(option);
+        });
+    
+        if (filteredSlots.length > 0) {
+            const rect = timeInput.getBoundingClientRect();
+            timeDropdown.style.left = `${rect.left}px`;
+            timeDropdown.style.top = `${rect.bottom + window.scrollY}px`;
+            timeDropdown.style.width = `${rect.width}px`;
+            timeDropdown.style.display = "block";
+        } else {
+            timeDropdown.style.display = "none";
+        }
+    });
+    timeDropdown.addEventListener("change", () => {
+        const selectedTime = timeDropdown.value;
+        if (selectedTime) {
+            timeInput.value = selectedTime;
+            timeDropdown.style.display = "none";
+        }
+    });
+        
+
+
+    timeInput.addEventListener("click", () => {
+        timeOptions.style.display = timeOptions.style.display === "block" ? "none" : "block";
+    });
+
+    document.querySelectorAll('.time-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            timeInput.style.display = 'block';
+            const timeRange = btn.getAttribute('data-time');
+            timeInput.value = timeRange;
+            displaySlotsByRange(timeRange);
+            timeOptions.style.display = 'none';
+            timeDropdown.style.display = "block";
+        });
+    });
+
     serviceInput.addEventListener('focus', () => {
         socket.emit('get-services');
     });
@@ -38,70 +135,99 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Fetch available slots when both date & service are selected
+    serviceInput.addEventListener('change', () => {
+        const serviceId = serviceInput.value;
+        console.log("Service Id", serviceId);
+        if (serviceId) {
+            socket.emit('get-staff-by-service', { serviceId });
+        }
+        checkAndFetchSlots(); // existing logic
+    });
+    
+    socket.on('staff-list-by-service', staffList => {
+        console.log("StaffList", staffList);
+        staffInput.innerHTML = '<option value="">-- Select Staff --</option>';
+        staffList.forEach(staff => {
+            const option = document.createElement('option');
+            option.value = staff.id;
+            option.textContent = staff.staffname;
+            staffInput.appendChild(option);
+        });
+    });
+    
+
     dateInput.addEventListener('change', checkAndFetchSlots);
     serviceInput.addEventListener('change', checkAndFetchSlots);
+    staffInput.addEventListener('change', checkAndFetchSlots);
+
 
     function checkAndFetchSlots() {
         const selectedDate = dateInput.value;
         const selectedService = serviceInput.value;
-
+        const selectedStaff = staffInput.value;
+    
         const today = new Date().toISOString().split('T')[0];
-
         if (selectedDate < today) {
             alert("You cannot select a past date!");
             return;
         }
-
-        if (selectedDate && selectedService) {
+    
+        if (selectedDate && selectedService && selectedStaff) {
             socket.emit('get-available-slots', {
                 date: selectedDate,
                 serviceId: selectedService,
+                staffId: selectedStaff
             });
         }
     }
+    
 
-    // Populate time slots
-    socket.on('available-slots', slots => {
-        const currentDate = new Date();
-        const selectedDate = new Date(dateInput.value);
 
-        timeSelect.innerHTML = '<option value="">-- Select Time Slot --</option>';
-
-        const filteredSlots = slots.filter(time => {
-            if (selectedDate.toDateString() !== currentDate.toDateString()) return true;
-
-            const [hour, minute] = time.split(':').map(Number);
-            const slotTime = new Date(selectedDate);
-            slotTime.setHours(hour, minute, 0, 0);
-
-            return slotTime > currentDate;
-        });
-
-        if (filteredSlots.length === 0) {
-            const option = document.createElement('option');
-            option.value = '';
-            option.disabled = true;
-            option.textContent = 'No valid slots available';
-            timeSelect.appendChild(option);
+    bookingForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+    
+        const serviceId = serviceInput.value;
+        const date = dateInput.value;
+        const time = timeDropdown.value;
+        const selectedStaffId = staffInput.value || null; // optional staff
+    
+        if (!serviceId || !date || !time) {
+            alert("Please fill in all required fields.");
             return;
         }
-
-        filteredSlots.forEach(time => {
-            const option = document.createElement('option');
-            option.value = time;
-            option.textContent = time;
-            timeSelect.appendChild(option);
-        });
+    
+        const appointmentData = {
+            serviceId,
+            date,
+            time,
+            selectedStaffId // add staffId if selected, else null
+        };
+    
+        if (editingAppointmentId) {
+            socket.emit('reschedule-appointment', {
+                ...appointmentData,
+                appointmentId: editingAppointmentId
+            });
+            alert("Appointment updated successfully!");
+        } else {
+            socket.emit('book-appointment', appointmentData);
+        }
+    
+        bookingForm.reset();
+        editingAppointmentId = null;
+        document.getElementById('submitBtn').textContent = "Book Appointment";
     });
-
+    
 
 
     // Add newly booked appointment to table
     socket.on('appointment-added', (data) => {
         if (data && data.appointmentId) {
             localStorage.setItem('appointmentId', data.appointmentId);
-            alert('Appointment booked!');
+            console.log("AppointmentId", data.appointmentId);
+            console.log("ServiceId", data.serviceId);
+            initiatePayment(data.appointmentId, data.serviceId);
+
         }
         localStorage.setItem('staffId', data.staffId);
         addAppointmentToTable(data);
@@ -130,9 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', handleCancel);
         });
 
-        document.querySelectorAll('.pay-btn').forEach(btn => {
-            btn.addEventListener('click', handlePay);
-        });
     }
 
 
@@ -145,18 +268,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = document.createElement('tr');
         row.setAttribute('data-id', appointment.id);
         row.setAttribute('data-service-id', appointment.service?.id);
+        const isCompleted = appointment.status?.toLowerCase() === 'completed';
+        const timeFormatted = convertTo12HourFormat(appointment.time);
         row.innerHTML = `
             <td>${appointment.id}</td>
             <td>${appointment.user?.name || '-'}</td>
             <td>${appointment.date}</td>
-            <td>${appointment.time}</td>
+            <td>${timeFormatted} </td>
+            <td>${appointment.Staff.staffname}</td>
             <td>${appointment.service?.name || '-'}</td>
             <td>
+                ${isCompleted ? 'Completed' : `
                 <button class="reschedule-btn" data-id="${appointment.id}">Reschedule</button>
-            <button class="cancel-btn" data-id="${appointment.id}">Cancel</button>
-            <button class="pay-btn" data-id="${appointment.id}">Pay</button>
+                <button class="cancel-btn" data-id="${appointment.id}">Cancel</button>
+            `}
             </td>
-        `;
+            `;
         tableBody.appendChild(row);
     }
 
@@ -165,17 +292,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleReschedule(e) {
         e.preventDefault();
         const appointmentId = e.target.dataset.id;
-        // Handle rescheduling logic here
-        // Find row data
+    
         const row = e.target.closest('tr');
-        const serviceName = row.children[4].textContent;
         const date = row.children[2].textContent;
         const time = row.children[3].textContent;
-
+        const serviceName = row.children[4].textContent;
+        const staffName = row.children[5]?.textContent; // assuming staff name is in 6th column
+    
         // Prefill form
         document.getElementById('date').value = date;
-        document.getElementById('time').value = time;
-
+        document.getElementById('timeInput').value = time;
+    
         const serviceOptions = document.getElementById('service').options;
         for (let i = 0; i < serviceOptions.length; i++) {
             if (serviceOptions[i].text === serviceName) {
@@ -183,49 +310,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             }
         }
-
-        editingAppointmentId = appointmentId;
-
-        // Scroll to form
-        document.getElementById('bookingForm').scrollIntoView({ behavior: 'smooth' });
-
-        // Change button text
-        document.getElementById('submitBtn').textContent = "Update Appointment";
-
-    };
-    bookingForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-
-        const serviceId = serviceInput.value;
-        const date = dateInput.value;
-        const time = timeSelect.value;
-
-
-        if (editingAppointmentId) {
-            // Emit update
-            socket.emit('reschedule-appointment', {
-                appointmentId: editingAppointmentId,
-                serviceId,
-                date,
-                time
-            });
-            alert("Appointment updated successfully!");
+    
+        const staffOptions = document.getElementById('staff').options;
+        if (staffName && staffName !== "Not assigned") {
+            for (let i = 0; i < staffOptions.length; i++) {
+                if (staffOptions[i].text === staffName) {
+                    staffOptions[i].selected = true;
+                    break;
+                }
+            }
         } else {
-            // Emit new booking
-            socket.emit('book-appointment', {
-                serviceId,
-                date,
-                time
-            });
+            document.getElementById('staff').selectedIndex = 0; // Default to "-- Select Staff --"
         }
-
-
-        bookingForm.reset();
-        editingAppointmentId = null;
-        document.getElementById('submitBtn').textContent = "Book Appointment";
-    });
-
-
+    
+        editingAppointmentId = appointmentId;
+    
+        document.getElementById('bookingForm').scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('submitBtn').textContent = "Update Appointment";
+    }
+    
 
     function handleCancel(e) {
         e.preventDefault();
@@ -246,22 +349,10 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(message);
     });
 
-    const cashfree = Cashfree({
-        mode: "sandbox",
-    });
+    function initiatePayment(appointmentId, serviceId) {
+        const cashfree = Cashfree({ mode: "sandbox" });
 
-    async function handlePay(e) {
-        e.preventDefault();
-
-        const appointmentId = e.target.dataset.id;
-        const serviceId = e.target.closest('tr').dataset.serviceId;
-        const token = localStorage.getItem("token");
-
-        //console.log("AppointmentId:", appointmentId);
-        //console.log("ServiceId:", serviceId);
-
-
-        // Ask the server to check if payment is already successful
+        // Check if payment already done
         socket.emit("check-appointment-payment", { appointmentId });
 
         socket.once("appointment-payment-status", ({ isPaid }) => {
@@ -270,7 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // If not paid, continue with payment initiation
             socket.emit("initiate-payment", { appointmentId, serviceId });
 
             socket.once("payment-initiated", async ({ paymentSessionId, orderId }) => {
@@ -283,31 +373,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     await cashfree.checkout(checkoutOptions);
 
-                    // Wait a moment before updating
+                    // Wait for a few seconds to ensure payment propagation
                     setTimeout(() => {
                         socket.emit("update-transaction", { orderId, paymentSessionId });
-                    }, 5000); // Wait 5s for payment status to propagate
+                    }, 5000);
 
                 } catch (err) {
-                    console.error("Error during Cashfree checkout:", err);
-                    alert("Payment initiation failed.");
+                    console.error("Cashfree checkout error:", err);
+                    alert("Payment failed to start.");
                 }
-            });
-
-            socket.once("payment-error", (data) => {
-                alert("Payment failed: " + data.message);
             });
 
             socket.once("transaction-updated", () => {
                 alert("Payment Successful!");
-                window.location.href = "/public/html/customers/bookingAppointment.html";
+                window.location.href = "/html/customers/bookingAppointment.html";
+                alert('Appointment booked!');
             });
 
             socket.once("transaction-update-failed", (data) => {
-                alert("Payment failed or incomplete: " + data.message);
+                alert("Payment incomplete: " + data.message);
             });
         });
     }
+
 
     socket.on("payment-error", ({ message }) => {
         alert(`Payment Error: ${message}`);

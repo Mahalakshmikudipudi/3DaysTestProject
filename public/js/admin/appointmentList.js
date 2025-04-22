@@ -11,112 +11,102 @@ const staffNameInput = document.getElementById('staffName');
 const dateInput = document.getElementById('appointmentDate');
 const timeInput = document.getElementById('appointmentTime');
 
-// Edit appointment (fetch by id)
-function editAppointment(id) {
-    socket.emit('get-appointment-by-id', id);
-
-    socket.once('appointment-data', (appointment) => {
-        if (!appointment) {
-            return alert('Appointment not found');
-        }
-
-        //console.log("Editing appointment:", appointment);
-
-        selectedAppointmentId = appointment.id;
-
-        // If backend sends nested objects, use those
-        serviceNameInput.value = appointment.service?.name || appointment.serviceName || '';
-        staffNameInput.value = appointment.Staff?.staffname || appointment.staffName || '';
-        dateInput.value = appointment.date;
-        timeInput.value = appointment.time;
-
-        
-        //console.log("Service ID:", appointment.service?.id || appointment.serviceId || '');
-
-        fetchStaffOptions(appointment.serviceId);
-
-    });
-}
-
-// Fetch staff using socket
-function fetchStaffOptions(serviceId) {
-    socket.emit('get-staff-by-id', {serviceId});
-
-    socket.once('staff-list-id', (staffList) => {
-        assignStaffSelect.innerHTML = '<option value="">Select Staff</option>';
-        staffList.forEach(staff => {
-            const option = document.createElement('option');
-            option.value = staff.id;
-            option.textContent = staff.staffname;
-            assignStaffSelect.appendChild(option);
-        });
-    });
-}
-
-
 document.addEventListener("DOMContentLoaded", () => {
 
-    // Fetch and render appointments using socket
+    function convertTo12HourFormat(time24) {
+        const [hour, minute] = time24.split(':');
+        const hourInt = parseInt(hour);
+        const period = hourInt >= 12 ? 'PM' : 'AM';
+        const hour12 = hourInt % 12 === 0 ? 12 : hourInt % 12;
+        return `${hour12}:${minute} ${period}`;
+    }
     function fetchAppointments() {
         socket.emit('get-appointments');
 
         socket.once('appointments-data', (appointments) => {
             appointmentList.innerHTML = '';
+            
             appointments.forEach(appointment => {
                 const row = document.createElement('tr');
+                const timeFormatted = convertTo12HourFormat(appointment.time);
                 row.innerHTML = `
-                <td>${appointment.id}</td>
-                <td>${appointment.user.name}</td>
-                <td>${appointment.service.name}</td>
-                <td>${appointment.Staff.staffname || 'Not Assigned'}</td>
-                <td>${appointment.date}</td>
-                <td>${appointment.time}</td>
-                <td>
-                    <button class="edit-btn" onclick="editAppointment(${appointment.id})" id="editBtn">Edit</button>
-                </td>
-            `;
+                    <td>${appointment.id}</td>
+                    <td>${appointment.user.name}</td>
+                    <td>${appointment.service.name}</td>
+                    <td>${appointment.Staff?.staffname || 'Not Assigned'}</td>
+                    <td>${appointment.date}</td>
+                    <td>${timeFormatted}</td>
+                    <td>
+                        <select data-id="${appointment.id}" class="staff-select"></select>
+                        
+                    </td>
+                    <td>
+                        <button class="update-btn" data-id="${appointment.id}">Update</button>
+                    </td>
+                `;
                 appointmentList.appendChild(row);
+
+                // Load staff options for this appointment row
+                fetchRowStaffOptions(appointment.service.id, appointment.id);
             });
         });
     }
 
-    
-
-    document.getElementById('updateBtn').addEventListener('click', () => {
-        updateAppointment();
-    });
-
-    
-
-    // Update appointment with new staff
-    function updateAppointment() {
-        const staffId = assignStaffSelect.value;
-        if (!selectedAppointmentId || !staffId) {
-            return alert('Please select a staff to assign.');
-        }
-
-        socket.emit('update-appointment', {
-            appointmentId: selectedAppointmentId,
-            staffId
-        });
+    function fetchRowStaffOptions(serviceId, appointmentId) {
+        socket.emit('get-staff-by-id', { serviceId, appointmentId });
     }
+    
+    // Now use a shared persistent listener
+    socket.on('staff-list-id', ({ staffList, appointmentId }) => {
+        const select = document.querySelector(`select[data-id="${appointmentId}"]`);
+        if (!select) return;
+    
+        select.innerHTML = '<option value="">Select Staff</option>';
+    
+        staffList.forEach(staff => {
+            const option = document.createElement('option');
+            option.value = staff.id;
+            option.textContent = staff.staffname;
+            select.appendChild(option);
+        });
+    
+        // Pre-select current assigned staff
+        socket.emit('get-appointment-by-id', appointmentId);
+    });
 
-    // Listen for confirmation and updates
-    socket.on('appointment-updated-success', (updatedAppointment) => {
-        alert('Appointment updated!');
+    socket.on('appointment-data', (appointment) => {
+        const select = document.querySelector(`select[data-id="${appointment.id}"]`);
+        if (select && appointment?.staffId) {
+            select.value = appointment.staffId;
+        }
+    });
+    
+    
+
+    // Listen for Update button click (event delegation)
+    appointmentList.addEventListener('click', (e) => {
+        if (e.target.classList.contains('update-btn')) {
+            const appointmentId = e.target.dataset.id;
+            const select = document.querySelector(`select[data-id="${appointmentId}"]`);
+            const staffId = select.value;
+
+            if (!staffId) {
+                alert('Please select a staff to assign.');
+                return;
+            }
+
+            socket.emit('update-appointment', { appointmentId, staffId });
+        }
+    });
+
+    // On update success, re-fetch appointments (or update that one row)
+    socket.on('appointment-updated-success', () => {
         fetchAppointments();
     });
 
-    socket.on('appointment-updated', (updated) => {
-        console.log('Real-time update from others:', updated);
-        fetchAppointments();
-    });
-
-    // Initial fetch
     fetchAppointments();
 
-    socket.on('edit-not-allowed', (msg) => {
-        alert(msg);
-      });
-
+    socket.on('error', (message) => {
+        alert(message);
+    })
 });

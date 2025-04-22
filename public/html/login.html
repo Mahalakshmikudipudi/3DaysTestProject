@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Login</title>
     <script defer src="http://localhost:3000/socket.io/socket.io.js"></script>
-    <link rel="stylesheet" href="/public/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css">
 
 </head>
 <body>
@@ -16,13 +16,16 @@
         <input type="password" id="password" placeholder="Password" required>
         <button>Login</button>
     </form>
-    <a href="/public/html/ForgetPassword.html">Forgot Password</a><br>
-    <a href="/public/html/signup.html">
+    <div id="anchorLinks">
+        <a href="/html/ForgetPassword.html">Forgot Password</a><br>
+    <a href="/html/signup.html">
         New User - Signup Now
     </a> 
+    </div>
+    
     
     <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/public/js/login.js"></script>
+    <script src="/js/login.js"></script>
     
 </body>
 </html>

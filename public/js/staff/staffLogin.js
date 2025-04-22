@@ -16,7 +16,7 @@ async function login(e) {
         if (data.success) {
             alert("Login successful");
             localStorage.setItem("token", data.token); // Store token in localStorage
-            window.location.href = "/public/html/staff/home.html"; // Redirect to staff home page
+            window.location.href = "/html/staff/home.html"; // Redirect to staff home page
         } else {
             alert(data.message);
             document.body.innerHTML += `<div style="color:red;">${data.message}</div>`;

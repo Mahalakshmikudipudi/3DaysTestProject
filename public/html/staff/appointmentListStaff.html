@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Appointments</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/html/staff/home.html" class="nav-link">Home</a></li>
+                <li><a href="/html/staff/responseByStaff.html" class="nav-link">Rating and Review</a></li>
+                <li><a href="/html/staff/appointmentListStaff.html" class="nav-link active">Appointments</a></li>
+            </ul>
+        </nav>
+    </header>
+    <h2>My Appointments</h2>
+    <table id="appointmentsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Service</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Customer</th>
+                <th>Availability</th>
+                <th>Update Availability</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="staffAppointments"></tbody>
+    </table>
+
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="/js/staff/appointmentListStaff.js"></script>
+
+</body>
+
+</html>

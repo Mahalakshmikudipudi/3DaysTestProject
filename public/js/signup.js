@@ -24,7 +24,7 @@ socket.on("signup-response", (data) => {
     // Handle success or error response
     if (data.success) {
         alert("Successfully signed up");
-        window.location.href = "../html/login.html"; // Redirect to login page
+        window.location.href = "/html/login.html"; // Redirect to login page
     } else {
         alert(data.message);
         document.body.innerHTML += `<div style="color:red;">${data.message}</div>`;

@@ -15,7 +15,7 @@ const updateAppointmentStatus = cron.schedule('* * * * *', async () => {
     //  Mark appointments as completed
     const pastAppointments = await Appointment.findAll({
       where: {
-        status: 'pending',
+        status: 'confirmed',
         [Op.or]: [
           {
             date: { [Op.lt]: today }
@@ -29,6 +29,9 @@ const updateAppointmentStatus = cron.schedule('* * * * *', async () => {
       include: [User, Staff, { model: Service, as: 'service' }]
     });
 
+    console.log('Found past appointments:', pastAppointments.length);
+
+
     for (const appt of pastAppointments) {
       const [hours, minutes] = appt.time.split(':').map(Number);
       const appointmentStart = new Date(`${appt.date}T${appt.time}:00`);
@@ -36,21 +39,23 @@ const updateAppointmentStatus = cron.schedule('* * * * *', async () => {
       const durationMinutes = appt.service?.duration || 30; // fallback to 30 min if not set
       const appointmentEnd = new Date(appointmentStart.getTime() + durationMinutes * 60000);
       
+      // ✅ Only mark completed and send email once
       if (now > appointmentEnd) {
         appt.status = 'completed';
         await appt.save();
-      }
 
-      // Send feedback request email
-      await sendEmail({
-        to: appt.user.email,
-        subject: 'How was your appointment?',
-        html: `
-          <p>Hi ${appt.user.name},</p>
-          <p>Your appointment for <strong>${appt.service.name}</strong> is now completed.</p>
-          <p>Please leave your feedback for ${appt.Staff.staffname} in your account</p>
-        `
-      });
+        await sendEmail({
+          to: appt.user.email,
+          subject: 'How was your appointment?',
+          html: `
+            <p>Hi ${appt.user.name},</p>
+            <p>Your appointment for <strong>${appt.service.name}</strong> is now completed.</p>
+            <p>Please leave your feedback for ${appt.Staff.staffname} in your account</p>
+          `
+        });
+
+        console.log(`Marked appointment ${appt.id} as completed and sent email.`);
+      }
     }
   } catch (error) {
     console.error("Cron Error:", error.message);
