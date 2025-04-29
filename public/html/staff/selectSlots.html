@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Slots</title>
+    <link rel="stylesheet" href="/public/css/styles.css">
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="/public/html/staff/home.html" class="nav-link">Home</a></li>
+                <li><a href="/public/html/staff/responseByStaff.html" class="nav-link">Rating and Review</a></li>
+                <li><a href="/public/html/staff/selectSlots.html" class="nav-link active"> Selected Slots</a></li>
+                <li><a href="/public/html/staff/appointmentListStaff.html" class="nav-link">Appointments</a></li>
+            </ul>
+        </nav>
+    </header>
+    <div class="search-container">
+        <h2>Search Available Slots</h2>
+        <label for="date">Select Date:</label>
+        <input type="date" id="date" name="date" class="date-picker">
+        <button id="searchBtn" class="search-btn" onclick="fetchSlots(event)">Search</button>
+    </div>
+    
+    <h3>Available Slots</h3>
+    <div id="slotContainer" class="slot-buttons"></div>
+    
+    <button id="submitBtn" class="submit-btn" style="display: none;">Submit Slots</button>
+    
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <script src="/public/js/staff/selectSlots.js"></script>
+</body>
+</html>

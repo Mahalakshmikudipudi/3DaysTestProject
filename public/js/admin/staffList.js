@@ -1,237 +1,228 @@
-const socket = io('http://localhost:3000', {
-    auth: { token: localStorage.getItem('token') }
-});
+const API = `http://localhost:3000`;
+const token = localStorage.getItem("token");
 
-function formatTo12Hour(time24) {
-    const [hour, minute] = time24.split(':');
-    const hourNum = parseInt(hour, 10);
-    const ampm = hourNum >= 12 ? 'PM' : 'AM';
-    const hour12 = hourNum % 12 || 12;
-    return `${hour12}:${minute} ${ampm}`;
-}
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const response = await axios.get(`${API}/admin/get-all-services`,
+            { headers: { "Authorization": `Bearer ${token}` } }
+        );
 
+        if (response.data.success) {
+            const specializationSelect = document.getElementById('specialization');
+            specializationSelect.innerHTML = '<option value="">-- Select Service --</option>';
 
-let currentPage = 1;
-const staffPerPage = 5;
-let allStaff = [];
-
-
-// Fetch available services to populate the specialization dropdown
-function fetchServices() {
-    socket.emit('get-services');
-}
-
-// Populate specialization dropdown when receiving services
-socket.on('service-list', (services) => {
-    const specializationSelect = document.getElementById('specialization');
-    specializationSelect.innerHTML = '<option value="">-- Select Service --</option>';
-
-    services.forEach(service => {
-        const option = document.createElement('option');
-        option.value = service.id;
-        option.textContent = service.name;
-        specializationSelect.appendChild(option);
-    });
-});
-
-document.querySelector("form").addEventListener("submit", addStaff);
-
-
-// Add staff member
-function addStaff(e) {
-    e.preventDefault();
-
-    const staffname = document.getElementById('staffName').value.trim();
-    const staffemail = document.getElementById('staffEmail').value.trim();
-    const staffphone = document.getElementById('staffPhone').value.trim();
-    const staffpassword = document.getElementById('staffPassword').value.trim();
-    const specializationId = document.getElementById('specialization').value;
-    const startTime = document.getElementById('startTime').value;
-    const endTime = document.getElementById('endTime').value;
-
-    const isAvailable = parseInt(document.getElementById('availability').value);
-
-    if (!staffname || !staffemail || !staffphone || !staffpassword || !specializationId || !startTime || !endTime || !isAvailable) {
-        alert("Please fill in all fields.");
-        return;
+            response.data.services.forEach(service => {
+                const option = document.createElement('option');
+                option.value = service.id;
+                option.textContent = service.name;
+                specializationSelect.appendChild(option);
+            });
+        }
+    } catch (err) {
+        console.error("Error:", err.response ? err.response.data.message : err.message);
+        document.body.innerHTML += `<div style="color:red;">${err.response ? err.response.data.message : err.message}</div>`;
     }
-
-    const staffData = {
-        staffname,
-        staffemail,
-        staffphone,
-        staffpassword,
-        specializationId,
-        startTime,
-        endTime,
-        isAvailable
-    };
-
-    console.log(staffData);
-
-    socket.emit('add-staff', staffData);
-    socket.emit('get-staff', { page: currentPage, limit: staffPerPage }); // Refresh list
-
-    document.querySelector('form').reset();
-}
-
-socket.on('staff-added', () => {
-    getStaffList(currentPage);
 });
 
-// Render one staff row
-function appendStaffRow(staff) {
-    const staffTableBody = document.getElementById('staffList');
-    const row = document.createElement('tr');
-    row.id = `staff-${staff.id}`;
+async function addStaff(e) {
+    try {
+        e.preventDefault();
+        const staffDetails = {
+            staffname: document.getElementById("staffName").value,
+            staffemail: document.getElementById("staffEmail").value,
+            staffphone: document.getElementById("staffPhone").value,
+            staffpassword: document.getElementById("staffPassword").value,
+            specializationId: document.getElementById("specialization").value,
+            isAvailable: document.getElementById("availability").value
+        };
 
+        const response = await axios.post(`${API}/admin/add-staff`,
+            staffDetails,
+            { headers: { "Authorization": `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+            alert(response.data.message);
+            addNewStafftoUI(response.data.staff);
+        }
+
+        document.getElementById("staffName").value = '';
+        document.getElementById("staffEmail").value = '';
+        document.getElementById("staffPhone").value = '';
+        document.getElementById("staffPassword").value = '';
+        document.getElementById("specialization").value = '';
+        //Re-fetch updated expenses list (optional but recommended)
+        const staffPerPage = localStorage.getItem("staffPerPage") || 5;
+        await fetchStaff(1, staffPerPage);
+    } catch (err) {
+        console.error("Error:", err.response ? err.response.data.message : err.message);
+        document.body.innerHTML += `<div style="color:red;">${err.response ? err.response.data.message : err.message}</div>`;
+    }
+};
+
+window.addEventListener("DOMContentLoaded", async () => {
+    const staffPerPage = localStorage.getItem("staffPerPage") || 5; // Default to 5
+    document.getElementById("itemsPerPage").value = staffPerPage; // Set dropdown value
+    await fetchStaff(1, staffPerPage);
+});
+
+// Event listener for dropdown to update preference
+document.getElementById("itemsPerPage").addEventListener("change", async function () {
+    const selectedLimit = this.value;
+    localStorage.setItem("staffPerPage", selectedLimit); // Store user preference
+    await fetchStaff(1, selectedLimit); // Fetch data with new limit
+});
+
+async function fetchStaff(page, limit) {
+    try {
+        const response = await axios.get(`${API}/admin/get-all-staff?page=${page}&limit=${limit}`,
+            { headers: { "Authorization": `Bearer ${token}` } }
+        );
+        if (response.data.success) {
+            response.data.staffList.forEach(staff => {
+                addNewStafftoUI(staff);
+                showPagination(response.data);
+            })
+        }
+
+    } catch (err) {
+        console.error("Error:", err.response ? err.response.data.message : err.message);
+        document.body.innerHTML += `<div style="color:red;">${err.response ? err.response.data.message : err.message}</div>`;
+    }
+};
+
+// Update pagination buttons
+async function showPagination({ currentPage, hasNextPage, nextPage, hasPreviousPage, previousPage, lastPage }) {
+    try {
+        const pagination = document.getElementById("pagination");
+        pagination.innerHTML = '';
+
+        const limit = localStorage.getItem("staffPerPage") || 5; // Get stored limit
+
+        if (hasPreviousPage) {
+            const btnPrev = document.createElement('button');
+            btnPrev.innerHTML = previousPage;
+            btnPrev.addEventListener('click', () => fetchStaff(previousPage, limit));
+            pagination.appendChild(btnPrev);
+        }
+
+        const btnCurrent = document.createElement('button');
+        btnCurrent.innerHTML = `<h3>${currentPage}</h3>`;
+        btnCurrent.addEventListener('click', () => fetchStaff(currentPage, limit));
+        pagination.appendChild(btnCurrent);
+
+        if (hasNextPage) {
+            const btnNext = document.createElement('button');
+            btnNext.innerHTML = nextPage;
+            btnNext.addEventListener('click', () => fetchStaff(nextPage, limit));
+            pagination.appendChild(btnNext);
+        }
+    } catch (err) {
+        console.log(err);
+    }
+};
+
+async function addNewStafftoUI(staff) {
+    const staffListBody = document.getElementById("staffList");
+    const row = document.createElement('tr');
+    row.classList.add('staff-row');
+    row.dataset.id = staff.id;
+    row.dataset.staffname = staff.staffname;
+    row.dataset.staffemail = staff.staffemail;
+    row.dataset.staffphone = staff.staffphone;
+    row.dataset.specializationId = staff.specializationId;
+    row.dataset.isAvailable = staff.isAvailable;
     row.innerHTML = `
         <td>${staff.id}</td>
         <td>${staff.staffname}</td>
         <td>${staff.staffemail}</td>
         <td>${staff.staffphone}</td>
         <td>${staff.specialization?.name || 'N/A'}</td>
-        <td>${formatTo12Hour(staff.startTime) || '-'}</td>
-        <td>${formatTo12Hour(staff.endTime) || '-'}</td>
-        <td>${staff.isAvailable ? 'Available' : 'Unavailable'}</td>
+        <td>${staff.isAvailable === 1 ? "Available" : "Unavailable"}</td>
         <td>
-            <button class="edit-btn" onclick="editStaff(${staff.id})">Edit</button>
-            <button class="delete-btn" onclick="deleteStaff(${staff.id})">Delete</button>
+            <button class="edit-btn" onclick='editStaff(event, ${staff.id})'>Edit</button>
+            <button class="delete-btn" onclick='deleteStaff(event, ${staff.id})'>Delete</button>
         </td>
-    `;
+        `;
+    staffListBody.appendChild(row);
+};
 
-    staffTableBody.appendChild(row);
-}
+function editStaff(e, staffId) {
+    e.preventDefault();
+    const row = e.target.closest(".staff-row");
 
-
-// Populate staff list
-socket.on('staff-list', (data) => {
-    const { staffMembers, total, page, totalPages } = data;
-    currentPage = page;
-    totalPagesGlobal = totalPages;
-
-    const tbody = document.getElementById('staffList');
-    tbody.innerHTML = '';
-
-    if (staffMembers.length === 0) {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td colspan="9">No staff to display.</td>`;
-        tbody.appendChild(row);
+    if (!row) {
+        console.error("Could not find the row. Is .staff-row class missing?");
         return;
     }
 
-    staffMembers.forEach(appendStaffRow);
-    document.getElementById('pageIndicator').textContent = `Page ${currentPage} of ${totalPages}`;
-});
+    document.getElementById("staffName").value = row.dataset.staffname;
+    document.getElementById("staffEmail").value = row.dataset.staffemail;
+    document.getElementById("staffPhone").value = row.dataset.staffphone;
+    document.getElementById("specialization").value = row.dataset.specializationId;
+    document.getElementById("availability").value = row.dataset.isAvailable;
 
 
-document.addEventListener('DOMContentLoaded', () => {
-    fetchServices();
-    getStaffList(currentPage);
-    
-    document.getElementById("prevPage").addEventListener("click", () => {
-        if (currentPage > 1) {
-            currentPage--;
-            getStaffList(currentPage);
-        }
-    });
+    // Store the service ID in hidden input
+    document.getElementById("staffId").value = staffId;
 
-    document.getElementById("nextPage").addEventListener("click", () => {
-        const maxPages = totalPagesGlobal; // Use the correct total pages received from backend
-        if (currentPage < maxPages) {
-            currentPage++;
-            getStaffList(currentPage);
-        }
-    });
-});
-
-function getStaffList(page) {
-    socket.emit('get-staff', { page: page, limit: staffPerPage });
+    // Toggle buttons
+    document.getElementById("addBtn").style.display = 'none';
+    document.getElementById("updateBtn").style.display = 'block';
 }
 
-
-
-function editStaff(id) {
-    const row = document.getElementById(`staff-${id}`);
-    const cells = row.getElementsByTagName('td');
-
-    document.getElementById('staffName').value = cells[1].textContent;
-    document.getElementById('staffEmail').value = cells[2].textContent;
-    document.getElementById('staffPhone').value = cells[3].textContent;
-    document.getElementById('availability').value = (cells[7].textContent === 'Available') ? 1 : 0;
-
-    // Set times
-    const startTime = document.getElementById('startTime').value;
-    const endTime = document.getElementById('endTime').value;
-
-
-    // Match service dropdown by text
-    const specDropdown = document.getElementById('specialization');
-    [...specDropdown.options].forEach(opt => {
-        if (opt.text === cells[4].textContent) {
-            specDropdown.value = opt.value;
-        }
-    });
-
-    // Change button behavior
-    const btn = document.getElementById('submitBtn');
-    btn.textContent = 'Update';
-    btn.onclick = (e) => updateStaff(e, id);
-}
-
-function updateStaff(e, id) {
+async function updateStaff(e) {
     e.preventDefault();
 
-    const staffname = document.getElementById('staffName').value.trim();
-    const staffemail = document.getElementById('staffEmail').value.trim();
-    const staffphone = document.getElementById('staffPhone').value.trim();
-    const specializationId = document.getElementById('specialization').value;
-    const startTime = document.getElementById('startTime').value;
-    const endTime = document.getElementById('endTime').value;
+    const id = document.getElementById("staffId").value;  // get ID here
+    const staffname = document.getElementById("staffName").value;
+    const staffemail = document.getElementById("staffEmail").value;
+    const staffphone = document.getElementById("staffPhone").value;
+    const specializationId = document.getElementById("specialization").value;
+    const isAvailable = document.getElementById("availability").value;
 
-    const isAvailable = parseInt(document.getElementById('availability').value);
-
-    if (!staffname || !staffemail || !staffphone || !specializationId || !startTime || !endTime) {
-        alert("Please fill in all fields.");
-        return;
-    }
-
-    const data = {
-        id,
-        staffname,
-        staffemail,
-        staffphone,
-        specializationId,
-        startTime,
-        endTime,
-        isAvailable
-    };
-
-    socket.emit('edit-staff', data);
-
-    document.querySelector('form').reset();
-
-    const btn = document.getElementById('submitBtn');
-    btn.textContent = 'Add Staff';
-    btn.onclick = addStaff;
-}
-
-socket.on('staff-updated', () => {
-    getStaffList(currentPage);
-});
+    try {
+        const response = await axios.put(`${API}/admin/edit-staff/${id}`, {
+            staffname,
+            staffemail,
+            staffphone,
+            specializationId,
+            isAvailable
+        }, {
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
 
 
-function deleteStaff(id) {
-    if (confirm("Delete this staff member?")) {
-        socket.emit('delete-staff', id);
+        if (response.data.success) {
+            alert("Staff updated successfully.");
+            location.reload();
+        } else {
+            alert(response.data.message || "Failed to update staff.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("An error occurred while updating the staff.");
     }
 }
 
-socket.on('staff-deleted', () => {
-    getStaffList(currentPage);
-});
+async function deleteStaff(e, staffId) {
+    try {
+        const response = await axios.delete(`${API}/admin/delete-staff/${staffId}`,
+            { headers: { "Authorization": `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+            alert(response.data.message);
+            location.reload();
+        } else {
+            alert(data.message || "Failed to delete staff.");
+        }
+    } catch (error) {
+        console.error("Delete error:", error);
+        alert("An error occurred while deleting the staff.");
+    }
+};
 
 
-socket.on('error', (msg) => {
-    alert(msg);
-});

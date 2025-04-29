@@ -1,8 +1,14 @@
 const Sequelize = require('sequelize');
-const sequelize = require('../config/database');
+const sequelize = require('../util/database');
 const Service = require('../models/services');
 
 const Staff = sequelize.define('Staff', {
+    id: {
+            type: Sequelize.INTEGER,
+            autoIncrement: true,
+            allowNull: false,
+            primaryKey: true
+        },
     staffname: {
       type: Sequelize.STRING,
       allowNull: false
@@ -10,7 +16,6 @@ const Staff = sequelize.define('Staff', {
     staffemail: {
       type: Sequelize.STRING,
       allowNull: false,
-      unique: true,
       validate: {
         isEmail: true
       }
@@ -22,7 +27,6 @@ const Staff = sequelize.define('Staff', {
     staffphone: {
       type: Sequelize.STRING,
       allowNull: false,
-      unique: true
     },
     specializationId: {
       type: Sequelize.INTEGER,
@@ -37,8 +41,6 @@ const Staff = sequelize.define('Staff', {
       allowNull: false,
       defaultValue: true,
     },
-    startTime: Sequelize.TIME, // Availability start
-    endTime: Sequelize.TIME,   // Availability end
   });
 
   module.exports = Staff;

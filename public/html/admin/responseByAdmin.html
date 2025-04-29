@@ -4,38 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rating and Review</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/public/css/styles.css">
 </head>
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="/html/admin/home.html" class="nav-link">Home</a></li>
-                <li><a href="/html/admin/serviceList.html" class="nav-link">Services</a></li>
-                <li><a href="/html/admin/staffList.html" class="nav-link">Staff</a></li>
-                <li><a href="/html/admin/appointmentList.html" class="nav-link">Appointments</a></li>
-                <li><a href="/html/admin/responseByAdmin.html" class="nav-link active">Reviews and Responses</a></li>
-                <li><a href="/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
+                <li><a href="/public/html/admin/home.html" class="nav-link">Home</a></li>
+                <li><a href="/public/html/admin/serviceList.html" class="nav-link">Services</a></li>
+                <li><a href="/public/html/admin/staffList.html" class="nav-link">Staff</a></li>
+                <li><a href="/public/html/admin/appointmentList.html" class="nav-link">Appointments</a></li>
+                <li><a href="/public/html/admin/responseByAdmin.html" class="nav-link active">Reviews and Responses</a></li>
+                <li><a href="/public/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
             </ul>
         </nav>
     </header>
     <h1 id="review">Rating and Review</h1>
     <h2 id="creview">Customer Reviews</h2>
-
+    <label for="itemsPerPage">Reviews per page:</label>
+    <select id="itemsPerPage">
+        <option value="5" selected>5</option>
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+    </select>
     <ul id="reviewsList">
         <!-- Example Review Rendered Dynamically -->
         <!-- Each review will be wrapped in a <li> with id="review-<review.id>" -->
     </ul>
 
-    <div id="pagination-controls">
-        <button id="prevPage">Previous</button>
-        <span id="pageIndicator">Page 1</span>
-        <button id="nextPage">Next</button>
-    </div>
+    <div id="pagination"></div>
+
       
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
     
-    <script src="/js/admin/responseByAdmin.js"></script>
+    <script src="/public/js/admin/responseByAdmin.js"></script>
     
 
     

@@ -26,7 +26,7 @@ const updateAppointmentStatus = cron.schedule('* * * * *', async () => {
           }
         ]
       },
-      include: [User, Staff, { model: Service, as: 'service' }]
+      include: [User, Staff, Service]
     });
 
     console.log('Found past appointments:', pastAppointments.length);
@@ -36,7 +36,7 @@ const updateAppointmentStatus = cron.schedule('* * * * *', async () => {
       const [hours, minutes] = appt.time.split(':').map(Number);
       const appointmentStart = new Date(`${appt.date}T${appt.time}:00`);
 
-      const durationMinutes = appt.service?.duration || 30; // fallback to 30 min if not set
+      const durationMinutes = appt.Service?.duration || 30; // fallback to 30 min if not set
       const appointmentEnd = new Date(appointmentStart.getTime() + durationMinutes * 60000);
       
       // ✅ Only mark completed and send email once
@@ -49,7 +49,7 @@ const updateAppointmentStatus = cron.schedule('* * * * *', async () => {
           subject: 'How was your appointment?',
           html: `
             <p>Hi ${appt.user.name},</p>
-            <p>Your appointment for <strong>${appt.service.name}</strong> is now completed.</p>
+            <p>Your appointment for <strong>${appt.Service.name}</strong> is now completed.</p>
             <p>Please leave your feedback for ${appt.Staff.staffname} in your account</p>
           `
         });

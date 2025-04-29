@@ -5,57 +5,69 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Booking Appointment</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+    <link rel="stylesheet" href="/public/css/styles.css">
 </head>
 
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="/html/customers/home.html" class="nav-link">Home</a></li>
-                <li><a href="/html/customers/bookingAppointment.html" class="nav-link active">Book Appointment</a></li>
-                <li><a href="/html/customers/rating.html" class="nav-link">Rating and Review</a></li>
-                <li><a href="/html/customers/updateProfile.html" class="nav-link">Update Profile</a></li>
+                <li><a href="/public/html/customers/home.html" class="nav-link">Home</a></li>
+                <li><a href="/public/html/customers/bookingAppointment.html" class="nav-link active">Book
+                        Appointment</a></li>
+                <li><a href="/public/html/customers/rating.html" class="nav-link">Rating and Review</a></li>
+                <li><a href="/public/html/customers/updateProfile.html" class="nav-link">Update Profile</a></li>
             </ul>
         </nav>
     </header>
     <h1 id="Appointment">Book an Appointment</h1>
-    <form id="bookingForm">
-
+    <form id="bookingForm" style="display: block;">
         <label for="date">Date:</label>
-        <input type="date" id="date" name="date" required><br>
-
-        <label for="service">Select Service:</label>
-        <select id="service" name="service" required>
+        <input type="date" id="date" name="date"><br><br>
+        <label for="service">Service:</label>
+        <select name="service" id="service">
             <option value="">-- Select Service --</option>
-        </select><br>
-
-        <label for="staff">Select Staff:</label>
-        <select name="staff" id="staff">
-            <option value="">-- Select Staff --</option>
         </select>
-
-        <div class="time-selector">
-            <label for="timeInput">Time:</label>
-            <input type="text" id="timeInput" placeholder="Select Time" readonly>
-          
-            <div id="timeOptions" style="display: none;">
-              <label for="fromTime">From:</label>
-              <input type="time" name="fromTime" id="fromTime" required>
-              <label for="toTime">To:</label>
-              <input type="time" name="toTime" id="toTime" required>
-              <button type="button" id="searchSlotsBtn">Search Available Slots</button>
-
-              <!-- This will become the dropdown for available slots -->
-            <select id="timeDropdown" style="display: none; position: absolute;"></select>
-
-            </div>
-          </div>
-          <br>
-          
-        <button type="submit" id="submitBtn">Book Appointment</button>
+        <button id="searchBtn" onclick="fetchSlots(event)">Search Available Slots</button>
     </form>
+
+<div id="search-container" style="display: none; margin-top: 20px;">
+    <input type="text" id="search" placeholder="Search">
+    <div id="timeInput" style="display: none;">
+        <label for="fromTimeInput">From Time:</label>
+        <input type="time" id="fromTimeInput" placeholder="From Time" />
+    
+        <label for="toTimeInput">To Time:</label>
+        <input type="time" id="toTimeInput" placeholder="To Time" />
+    
+    </div>
+    <button id="timeSearchBtn" onclick="searchSlots(event)">Search Slots</button>
+    <div id="slotContainer"></div>
+</div>
+
+    <div id="popupModal" class="modal" style="display: none;">
+        <div class="modal-content">
+          <span id="closeModal" class="close">&times;</span>
+          <h2>Booking Details</h2>
+          <p id="serviceName"></p>
+          <p id="servicePrice"></p>
+          <p id="staffName"></p>
+          <p id="slotTime"></p>
+          <button id="bookPayBtn">Book and Pay</button>
+          <button id="update-btn" style="display: none;">Update</button>
+        </div>
+      </div>
+
     <h2 id="Appointment">Appointment List</h2>
+    <label for="itemsPerPage">Appointments per page:</label>
+    <select id="itemsPerPage">
+        <option value="5" selected>5</option>
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+    </select>
     <table>
         <thead>
             <tr>
@@ -72,9 +84,11 @@
             <!-- Appointments will be dynamically added here -->
         </tbody>
     </table>
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/js/customers/bookingAppointment.js"></script>
-    <script src="/js/admin/serviceList.js"></script>
+    <div id="pagination"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <script src="/public/js/customers/bookingAppointment.js"></script>
+    <script src="/public/js/admin/serviceList.js"></script>
 
 </body>
 

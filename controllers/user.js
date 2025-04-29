@@ -8,35 +8,26 @@ function isStringInvalid(string) {
 }
 
 // Function to generate JWT token
-const generateAccessToken = (id, name, role, isPremiumUser) => {
-    return jwt.sign({ userId: id, name, role, isPremiumUser }, "secretkey", { expiresIn: "1h" });
+const generateAccessToken = (id, name, role) => {
+    return jwt.sign({ userId: id, name, role}, "secretkey", { expiresIn: "1h" });
 };
 
 // Signup function using WebSockets
-const signup = async (io, socket, data) => {
-    try {   
-        console.log("Data is:", data);
-        // Destructure data from the socket event
-        if (!data) {    
-            return socket.emit("signup-response", { success: false, message: "Invalid data" });
-        }
-        const { name, email, phonenumber, password, role } = data;
+const signup = async (req, res, next) => {
+    try {
+        const { name, email, phonenumber, password, role } = req.body;
 
-        // Check for missing fields
         if (isStringInvalid(name) || isStringInvalid(email) || isStringInvalid(password) || isStringInvalid(phonenumber)) {
-            return socket.emit("signup-response", { success: false, message: "Missing fields. Please fill all details." });
+            return res.status(400).json({ success: false, message: "Missing fields. Please fill all details." });
         }
 
-        // Check if user already exists
         const existingUser = await User.findOne({ where: { email } });
         if (existingUser) {
-            return socket.emit("signup-response", { success: false, message: "User already exists" });
+            return res.status(409).json({ success: false, message: "User already exists" });
         }
 
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create new user
         await User.create({
             name,
             email,
@@ -45,44 +36,38 @@ const signup = async (io, socket, data) => {
             role
         });
 
-        // Send success response
-        socket.emit("signup-response", { success: true, message: "Signup successful! Please login." });
+        return res.status(201).json({ success: true, message: "Signup successful! Please login." });
     } catch (error) {
         console.error(error);
-        socket.emit("signup-response", { success: false, message: "Signup failed, try again." });
+        return res.status(500).json({ success: false, message: "Signup failed, try again." });
     }
 };
 
 // Login function using WebSockets
-const login = async (io, socket, data ) => {
+const login = async (req, res, next) => {
     try {
-        const { email, password } = data;
+        const { email, password } = req.body;
 
-        // Check for missing fields
         if (isStringInvalid(email) || isStringInvalid(password)) {
-            return socket.emit("login-response", { success: false, message: "Email or password is missing" });
+            return res.status(400).json({ success: false, message: "Email or password is missing" });
         }
 
-        // Find user by email
         const user = await User.findOne({ where: { email } });
         if (!user) {
-            return socket.emit("login-response", { success: false, message: "User not found" });
+            return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        // Verify password
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
-            return socket.emit("login-response", { success: false, message: "Incorrect password" });
+            return res.status(401).json({ success: false, message: "Incorrect password" });
         }
 
-        // Generate JWT token
-        const token = generateAccessToken(user.id, user.name, user.role, user.isPremiumUser);
+        const token = generateAccessToken(user.id, user.name, user.role);
 
-        // Send success response with token
-        socket.emit("login-response", { success: true, token, message: "Login successful!" , role:user.role});
+        return res.status(200).json({ success: true, token, message: "Login successful!", role: user.role });
     } catch (error) {
         console.error(error);
-        socket.emit("login-response", { success: false, message: "Login failed, try again." });
+        return res.status(500).json({ success: false, message: "Login failed, try again." });
     }
 };
 

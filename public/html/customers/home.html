@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/public/css/styles.css">
 </head>
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="/html/customers/home.html" class="nav-link active">Home</a></li>
-                <li><a href="/html/customers/bookingAppointment.html" class="nav-link">Book Appointment</a></li>
-                <li><a href="/html/customers/rating.html" class="nav-link">Rating and Review</a></li>
-                <li><a href="/html/customers/updateProfile.html" class="nav-link">Update Profile</a></li>
+                <li><a href="/public/html/customers/home.html" class="nav-link active">Home</a></li>
+                <li><a href="/public/html/customers/bookingAppointment.html" class="nav-link">Book Appointment</a></li>
+                <li><a href="/public/html/customers/rating.html" class="nav-link">Rating and Review</a></li>
+                <li><a href="/public/html/customers/updateProfile.html" class="nav-link">Update Profile</a></li>
                 <button id="logoutBtn" onclick="logout()">Logout</button>
             </ul>
         </nav>
@@ -23,7 +23,7 @@
         <p>Here you can manage your appointments, provide feedback, and update your profile.</p>    
         <p>For any assistance, please contact our support team.</p>
     </main>
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/js/customers/home.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <script src="/public/js/customers/home.js"></script>
 </body>
 </html>

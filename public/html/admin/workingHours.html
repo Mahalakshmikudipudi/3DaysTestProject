@@ -5,19 +5,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Working Hours</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/public/css/styles.css">
 </head>
 
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="/html/admin/home.html" class="nav-link">Home</a></li>
-                <li><a href="/html/admin/serviceList.html" class="nav-link">Services</a></li>
-                <li><a href="/html/admin/staffList.html" class="nav-link">Staff</a></li>
-                <li><a href="/html/admin/appointmentList.html" class="nav-link">Appointments</a></li>
-                <li><a href="/html/admin/responseByAdmin.html" class="nav-link">Reviews and Responses</a></li>
-                <li><a href="/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
+                <li><a href="/public/html/admin/home.html" class="nav-link">Home</a></li>
+                <li><a href="/public/html/admin/serviceList.html" class="nav-link">Services</a></li>
+                <li><a href="/public/html/admin/staffList.html" class="nav-link">Staff</a></li>
+                <li><a href="/public/html/admin/appointmentList.html" class="nav-link">Appointments</a></li>
+                <li><a href="/public/html/admin/responseByAdmin.html" class="nav-link">Reviews and Responses</a></li>
+                <li><a href="/public/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
             </ul>
         </nav>
     </header>
@@ -37,7 +37,9 @@
         <input type="time" id="startTime" name="startTime" required><br><br>
         <label for="endTime">End Time:</label>
         <input type="time" id="endTime" name="endTime" required><br><br>
-        <button onclick="addWorkingHours()">Submit</button>
+        <button type="submit" id="submitBtn">Submit</button>
+        <button type="button" id="updateBtn" style="display: none;">Update</button>
+
     </form>
     <main>
         <h1>Working Hours</h1>
@@ -45,8 +47,8 @@
 
     </main>
 
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/js/admin/workingHours.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <script src="/public/js/admin/workingHours.js"></script>
 </body>
 
 </html>

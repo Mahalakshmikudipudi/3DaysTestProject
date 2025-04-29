@@ -1,31 +1,37 @@
 
-const appointmentReminderJob = require('./cron/appointmentRemainder');
-appointmentReminderJob.start(); // Start the cron
+// const appointmentReminderJob = require('./cron/appointmentRemainder');
+// appointmentReminderJob.start(); // Start the cron
 
-const updateAppointmentStatus = require('./cron/updateAppointmentStatus');
-updateAppointmentStatus.start(); //  Start the cron
+// const updateAppointmentStatus = require('./cron/updateAppointmentStatus');
+// updateAppointmentStatus.start(); //  Start the cron
 
+
+const dotenv = require('dotenv');
+dotenv.config();
+const path = require('path');
 
 const express = require('express');
-const http = require('http');
-const path = require('path');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const sequelize = require('./config/database');
+var cors = require('cors')
+//const Cashfree = require('cashfree-pg');
+const sequelize = require('./util/database');
+const User = require('./models/user');
+const Service = require('./models/services');
+const Staff = require('./models/staffMember');
+const WorkingHours = require('./models/workingHours');
+const StaffSlots = require('./models/staffSlots');
+const Appointment = require('./models/bookingAppointment');
+const Order = require('./models/paymentOrder');
+const Review = require('./models/review');
 
+const userRoutes = require('./routes/user');
+const adminRoutes = require('./routes/adminRoutes');
+const customerRoutes = require('./routes/customerRoutes');
+const staffRoutes = require('./routes/staffRoutes');
+
+//const { AWS } = require('aws-sdk');
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  },
-});
 
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -36,90 +42,77 @@ app.get("/", (req, res) => {
 });
 
 
-const User = require('./models/user');
-const Service = require('./models/services');
-const Staff = require('./models/staffMember');
-const Appointment = require('./models/bookingAppointment');
-const WorkingHours = require('./models/workingHours');
-const Order = require('./models/paymentOrder');
-const Review = require('./models/review');
+app.use(cors());
 
-const registerRoutes = require('./routes/socketRoutes');
-
-// In Staff.js
-Staff.belongsTo(Service, {
-  foreignKey: 'specializationId',
-  as: 'specialization'
-});
-
-// In Service.js
-Service.hasMany(Staff, {
-  foreignKey: 'specializationId',
-  as: 'specialization'
-});
-
-// Staff is created by User (if needed)
-Staff.belongsTo(User, { foreignKey: 'userId' });
-User.hasMany(Staff, { foreignKey: 'userId' });
-
-// Appointment belongs to a User (who booked the appointment)
-Appointment.belongsTo(User, {
-  foreignKey: 'userId'
-});
-User.hasMany(Appointment, { foreignKey: 'userId' });
-// Appointment belongs to a Service (what service is booked)
-Appointment.belongsTo(Service, {
-  foreignKey: 'serviceId',
-  as: 'service'
-});
-Service.hasMany(Appointment, { foreignKey: 'serviceId' });
-
-// Appointment optionally belongs to a Staff (assigned by admin)
-Appointment.belongsTo(Staff, {
-  foreignKey: 'assignedStaffId'
-});
-Staff.hasMany(Appointment, { foreignKey: 'assignedStaffId' });
+// app.use(bodyParser.urlencoded());  ////this is for handling forms
+app.use(express.json());  //this is for handling jsons
 
 
-Order.belongsTo(Service);
-Service.hasMany(Order);
+app.use('/user', userRoutes);
+app.use('/admin', adminRoutes);
+app.use('/customer', customerRoutes);
+app.use('/staff', staffRoutes);
 
-// Associations
-Review.belongsTo(User, { foreignKey: 'userId' });
-User.hasMany(Review, { foreignKey: 'userId' });
+User.hasMany(Service);
+Service.belongsTo(User, {foreignKey: 'userId'});
 
-Review.belongsTo(Staff, { foreignKey: 'staffId' });
-Staff.hasMany(Review, { foreignKey: 'staffId' });
+User.hasMany(WorkingHours, { foreignKey: 'userId'});
 
-Review.belongsTo(Appointment, { foreignKey: 'appointmentId' });
+WorkingHours.belongsTo(User, { foreignKey: 'userId'});
+
+Staff.belongsTo(User, { foreignKey: 'userId'});
+
+// Many staff can belong to one service (specialization)
+Staff.belongsTo(Service, { as: 'specialization', foreignKey: 'specializationId' });
+
+// One service can be the specialization for many staff
+Service.hasMany(Staff, { foreignKey: 'specializationId' });
+
+Staff.hasMany(StaffSlots, { foreignKey: 'staffId' });
+
+StaffSlots.belongsTo(Staff, { foreignKey: 'staffId' });
+
+Appointment.belongsTo(Service, { foreignKey: 'serviceId'});
+
+Appointment.belongsTo(Staff, { foreignKey:'staffId'});
+
+User.hasMany(Appointment, { foreignKey: 'userId'});
+
+Appointment.belongsTo(User, { foreignKey: 'userId' });
+
+StaffSlots.belongsTo(Service, { foreignKey: 'serviceId' });
+
+StaffSlots.belongsTo(Appointment, {foreignKey: 'appointmentId'});
+
+Appointment.belongsTo(StaffSlots, {foreignKey: 'slotId'});
+
+Service.hasMany(StaffSlots, { foreignKey: 'serviceId' });
+
+User.hasMany(Order, {foreignKey: 'userId'});
+
+Order.belongsTo(Appointment,{ foreignKey: 'appointmentId'});
+
+Review.belongsTo(Appointment, { foreignKey: 'appointmentId'});
+
+Review.belongsTo(Staff, {foreignKey: 'staffId'});
+
+Review.belongsTo(Service, {foreignKey: 'serviceId'});
+
+Review.belongsTo(User, {foreignKey: 'userId'});
+
 Appointment.hasOne(Review, { foreignKey: 'appointmentId' });
 
-Review.belongsTo(Service, { foreignKey: 'serviceId', as: 'service' });
-
-Order.belongsTo(User, { foreignKey: 'userId' });
-User.hasMany(Order, { foreignKey: 'userId' });
-
-Order.belongsTo(Appointment, { foreignKey: 'appointmentId' });
-Appointment.hasMany(Order, { foreignKey: 'appointmentId' });
 
 
-// Sync database and start the server
+
+
+
 sequelize.sync()
-  .then(() => {
-    server.listen(process.env.PORT, () => { // Use `server.listen` instead of `app.listen`
-      console.log(`Server running on localhost 3000`);
-    });
-  })
-  .catch(err => {
-    console.log(err);
-  });
-
-
-io.on("connection", (socket) => {
-  console.log(" User connected:", socket.id);
-  registerRoutes(io, socket);
-  
-  socket.on("disconnect", () => {
-    console.log(" User disconnected:", socket.id);
-  });
-});
+    .then(() => {
+        app.listen(process.env.PORT, () => {
+            console.log(`Server running on localhost ${process.env.PORT}`)
+        });
+    })
+    .catch(err => {
+        console.log(err);
+    })

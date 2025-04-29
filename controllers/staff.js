@@ -2,20 +2,13 @@ const Staff = require('../models/staffMember');
 const Service = require('../models/services');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const WorkingHours = require('../models/workingHours');
+const { generateSlots } = require('../helper/slotGenerator');
+const StaffSlots = require('../models/staffSlots');
 const Review = require('../models/review');
 const Appointment = require('../models/bookingAppointment');
-const User = require('../models/user');
-const { Op } = require('sequelize');
-const { findSocketByStaffId } = require('../helper/findSocketById');
 const sendEmail = require('../service/sendEmail');
-
-function convertTo12HourFormat(time24) {
-    const [hour, minute] = time24.split(':').map(Number);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
-}
-
+const User = require('../models/user');
 
 
 // Utility function to check if a string is invalid
@@ -24,212 +17,296 @@ function isStringInvalid(string) {
 }
 
 // Function to generate JWT token
-const generateAccessToken = (id, name) => {
-    return jwt.sign({ staffId: id, name }, "secretkey", { expiresIn: "1h" });
+const generateAccessToken = (id, name, specializationId) => {
+    return jwt.sign({ staffId: id, name, specializationId }, "secretkey", { expiresIn: "1h" });
 };
 
-// Login function using WebSockets
-const staffLogin = async (io, socket, data) => {
+const logoutStaff = async (req, res) => {
     try {
-        const { staffemail, staffpassword } = data;
+
+        // If using sessions, destroy it
+        if (req.session) {
+            req.session.destroy(err => {
+                if (err) {
+                    return res.status(500).json({ message: 'Logout failed. Try again!' });
+                }
+                res.status(200).json({ message: 'Logged out successfully!' });
+            });
+        } else {
+            res.status(200).json({ message: 'Logged out successfully!' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Something went wrong!' });
+    }
+};
+
+const staffLogin = async (req, res, next) => {
+    try {
+        const { staffemail, staffpassword } = req.body;
 
         // Check for missing fields
         if (isStringInvalid(staffemail) || isStringInvalid(staffpassword)) {
-            return socket.emit("staff-login-response", { success: false, message: "Email or password is missing" });
+            return res.status(501).json({ success: false, message: "Email or password is missing" });
         }
 
         // Find user by email
         const staff = await Staff.findOne({ where: { staffemail } });
         if (!staff) {
-            return socket.emit("staff-login-response", { success: false, message: "User not found" });
+            return res.status(402).json({ success: false, message: "User not found" });
         }
 
         // Verify password
         const isPasswordValid = await bcrypt.compare(staffpassword, staff.staffpassword);
         if (!isPasswordValid) {
-            return socket.emit("staff-login-response", { success: false, message: "Incorrect password" });
+            return res.status(503).json({ success: false, message: "Incorrect password" });
         }
 
         // Generate JWT token
-        const token = generateAccessToken(staff.id, staff.staffname);
-
-        // Send success response with token
-        socket.emit("staff-login-response", { success: true, token, message: "Login successful!" });
+        const token = generateAccessToken(staff.id, staff.staffname, staff.specializationId);
+        return res.status(201).json({ success: true, message: "Logged in successfully", token });
     } catch (error) {
         console.error(error);
-        socket.emit("staff-login-response", { success: false, message: "Login failed, try again." });
+        return res.status(500).json({ success: false, message: "Login failed, try again." });
+    }
+
+};
+
+const getAllSlots = async (req, res) => {
+    try {
+        const { date, serviceId } = req.query;
+        const staffId = req.staff.id;
+        const selectedDate = new Date(date);
+        const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+        
+        console.log(dayName);
+
+        const service = await Service.findByPk(serviceId);
+        if (!service) return res.status(404).json({ error: "Service not found" });
+        const serviceDuration = service.duration;
+
+        const staff = await Staff.findOne({
+            where: { id: staffId },
+        });
+        if (!staff) return res.status(404).json({ error: "Staff not found" });
+        //console.log(staff);
+
+        const workingHours = await WorkingHours.findOne({
+            where: { day: dayName}
+        });
+
+        const startTime = workingHours.startTime;  // e.g., "09:00"
+        const endTime = workingHours.endTime;      // e.g., "21:00"
+
+        const allSlots = generateSlots(startTime, endTime, serviceDuration, selectedDate);
+        //console.log(workingHours);
+
+        // Fetch already booked slots for that date
+        const bookedSlots = await StaffSlots.findAll({
+            where: {
+                staffId,
+                date
+            },
+            attributes: ['startTime', 'endTime']
+        });
+
+        const selectedSlots = bookedSlots.map(slot => ({
+            start: slot.startTime,
+            end: slot.endTime
+        }));
+
+        //console.log("Selected Slots:", selectedSlots);
+
+        return res.status(200).json({ success: true, message:"Slots generated Successfully", allSlots, selectedSlots });
+
+    } catch(err) {
+        console.log("Error get slots:", err);
+        return res.status(500).json({ success: false, message:"Error getting slots"});
     }
 };
 
-const getMyReviewsById = async (io, socket, data) => {
+const saveSelectedSlots = async(req, res, next) => {
     try {
-        // ✅ Convert to integers and fallback if invalid
-        console.log("Incoming data:", data);
-        const { staffId } = data;
-        let { page, limit } = data;
-        page = parseInt(page) || 1;
-        limit = parseInt(limit) || 5;
+        const { date, serviceId, slots } = req.body;
+        const staffId = req.staff.id; // assuming auth middleware sets req.user
 
-        const offset = (page - 1) * limit;
+        // 2. Insert new slots
+        const slotsToCreate = slots.map(slot => ({
+            staffId,
+            serviceId: serviceId,
+            date,
+            startTime: slot.start,
+            endTime: slot.end,
+            status: false
+        }));
 
-        if (!staffId) {
-            console.warn("Missing staffId in received data");
-            return socket.emit('my-reviews-id', []);
-        }
+        const selectedSlots = await StaffSlots.bulkCreate(slotsToCreate);
 
-        const { rows: reviews, count: total } = await Review.findAndCountAll({
-            where: { staffId },
+        return res.status(200).json({ success: true, message: "Slots updated successfully", selectedSlots });
+    } catch (err) {
+        console.error("Error saving slots:", err);
+        return res.status(500).json({ success: false, message: "Server Error" });
+    }
+};
+
+const getReviews = async (req, res, next) => {
+    try {
+        const staffId = req.staff.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        const totalItems = await Review.count({ where: { staffId: staffId } });
+
+        const reviews = await Review.findAll({
+            where: { staffId: staffId },
             attributes: ['id', 'rating', 'comment', 'Response', 'createdAt'],
             include: [
                 { model: Staff },
                 {
                     model: Appointment,
-                    include: [{ model: Service, as: 'service' }]
+                    include: [{ model: Service}]
                 }
             ],
-            order: [['createdAt', 'DESC']],
-            offset,
-            limit
+            offset: (page - 1) * limit,
+            limit: limit,
         });
 
-        console.log("Reviews sent:", reviews.map(r => r.Response));
 
 
-        socket.emit("my-reviews-id", {
-            reviews,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit)
-          });
+        return res.status(200).json({
+            success: true, reviews,
+            currentPage: page,
+            hasNextPage: limit * page < totalItems,
+            nextPage: page + 1,
+            hasPreviousPage: page > 1,
+            previousPage: page - 1,
+            lastPage: Math.ceil(totalItems / limit),
+        });
     } catch (error) {
-        console.error("Error fetching reviews:", error.message, error.stack);
-        socket.emit('my-reviews-id', { success: false, message: "Failed to fetch reviews." });
+        console.error('Error fetching reviews', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
-
-const respondToReview = async (io, socket, data) => {
+const respondToReviewByStaff = async(req, res, next) => {
     try {
-        //console.log("Data", data);
-        const { reviewId, staffResponse } = data;
-        const staffId = socket.staff.id; // Get the staff ID from the authenticated socket
+        const { reviewId, staffResponse } = req.body;
+        const staffId = req.staff.id;
+
         const review = await Review.findByPk(reviewId);
         if (!review || review.staffId !== staffId) return;
 
         if (review.Response) {
-            return socket.emit('error', 'Admin has already responded to this review.');
+            return res.status(500).json({success: false, message:'Admin has already responded to this review.'});
         }
-
         review.Response = staffResponse;
         await review.save();
 
         const fullReview = await Review.findByPk(reviewId, {
-            include: [{ model: Staff }, { model: Service, as: 'service' }]
+            include: [{ model: Staff }, { model: Service}]
         });
 
-        // Notify customer in real-time
-        io.to(`user-${review.userId}`).emit('review-response', fullReview);
-        socket.emit('review-response-saved', fullReview);
-    } catch (err) {
+        return res.status(200).json({success: true, fullReview});
+
+    } catch(err) {
         console.error("Error responding to review", err);
+        return res.status(500).json({success: false, message:"Something went wrong"});
     }
 };
 
-const getAppointmentsByStaff = async (io, socket, data) => {
-    const staffId = socket.staff.id;
-    const appointments = await Appointment.findAll({
-        where: { assignedStaffId: staffId },
-        include: [
-            { model: Service, as: 'service' },
-            { model: Staff },
-            { model: User, as: 'user' }
-        ]
-    });
-    socket.emit('my-appointments-data', appointments);
+const getAppointments = async(req, res, next) => {
+    try {
+        //console.log("req.staff:", req.staff.id);
+        const staffId = req.staff.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        if (!req.staff) {
+            return res.status(401).json({
+              success: false,
+              message: "Unauthorized: No staff information found",
+              appointments: []  // <= include this to prevent frontend crash
+            });
+          }
+
+        const totalItems = await Appointment.count({ where: { staffId: staffId } });
+
+        //console.log("TotalItems:", totalItems);
+
+        const appointments = await Appointment.findAll({
+            where: { staffId },
+            include: [
+              { model: Service },
+              { model: Staff },
+              { model: User }
+            ],
+            offset: (page - 1) * limit,
+            limit,
+        });
+
+        //console.log("Appointments:", appointments);
+
+        return res.status(200).json({success: true, appointments,
+            currentPage: page,
+            hasNextPage: limit * page < totalItems,
+            nextPage: page + 1,
+            hasPreviousPage: page > 1,
+            previousPage: page - 1,
+            lastPage: Math.ceil(totalItems / limit),
+        });
+
+    } catch(err) {
+        return res.status(500).json({success: false, message: "get appointments failed", appointments: []});
+    }
 };
 
-const changeAvailabilityByStaff = async (io, socket, data) => {
-    const staffId = socket.staff.id;
-    const { appointmentId } = data;
-
-    const appointment = await Appointment.findByPk(appointmentId, {
-        include: [
-            { model: User, as: "user" },
-            { model: Staff, as: "Staff" },
-            { model: Service, as: "service" }
-        ]
-    });
-
-    if (!appointment || appointment.assignedStaffId !== staffId) {
-        return socket.emit("error", "Invalid appointment or unauthorized access.");
-    }
-
-    // Prevent changing availability if already completed
-    if (appointment.status === 'completed') {
-        return socket.emit("error", "Cannot change availability for a completed appointment.");
-    }
-
-    // Mark current staff unavailable for this appointment
-    appointment.isStaffAvailable = false;
-    await appointment.save();
-
-    // Randomly find replacement staff for the same service
-    const availableStaff = await Staff.findAll({
-        where: {
-            specializationId: appointment.serviceId,
-            isAvailable: true,
-            id: { [Op.ne]: staffId }
+const updateAvailability = async(req, res, next) => {
+    try {
+        const { appointmentId } = req.params;
+        const staffId = req.staff.id
+        console.log("AppointmentId", appointmentId);
+        const appointment = await Appointment.findByPk(appointmentId, {
+            include: [
+                { model: User},
+                { model: Staff},
+                { model: Service},
+            ]
+        });
+        if (!appointment || appointment.staffId !== staffId) {
+            return res.status(402).json({success: false, message:"Invalid appointment or unauthorized access."});
         }
-    });
-
-    const replacement = availableStaff.length
-        ? availableStaff[Math.floor(Math.random() * availableStaff.length)]
-        : null;
-
-    if (replacement) {
-        appointment.assignedStaffId = replacement.id;
-        appointment.isStaffAvailable = true;
+        if (appointment.status === 'completed') {
+            return res.status(401).json({success: false, message:"Cannot change availability for a completed appointment."});
+        }
+        appointment.isStaffAvailable = false;
+        appointment.status = 'cancelled';
         await appointment.save();
 
-        // Notify the new staff via socket
-        const newStaffSocket = findSocketByStaffId(io, replacement.id);
-        if (newStaffSocket) {
-            newStaffSocket.emit('new-appointment-assigned', appointment);
-        }
-
-        const timeFormatted = convertTo12HourFormat(appointment.time);
-
-        // Notify new staff by email
-        sendEmail({
-            to: replacement.staffemail,
-            subject: "New Appointment Assigned",
-            html: `<p>You've been assigned a new appointment (ID: ${appointment.id}) for service ID: ${appointment.serviceId}.</p>`
-        });
-
-        // Notify the customer
-        sendEmail({
+        await sendEmail({
             to: appointment.user.email,
-            subject: "Your Appointment Has Been Updated",
-            html: `<p>Hi ${appointment.user.name},<br>Your appointment for "${appointment.service.name}" on ${appointment.date} at ${timeFormatted} has been reassigned to a new staff member: ${replacement.staffname}.<br>Thank you!</p>`
+            subject: "Your appointment is canceled",
+            html: `<p>Hi ${appointment.user.name},</p>
+            <p> your appointment is canceled due to unavailability of staff who is assigned</p>`
         });
+
+        //console.log("Appointment:", appointment);
+        
+        return res.status(200).json({success: true, message: "Availability Updated Successfully", appointment});
+    
+    }catch(err) {
+        console.error("Update availability error:", err);
+        return res.status(500).json({success: false, message:"Availability updated failed"});
     }
-
-    // Let the staff know the availability update is done
-    socket.emit("availability-updated", {
-        appointmentId: appointment.id,
-        isStaffAvailable: appointment.isStaffAvailable
-    });
-};
-
-
+}
 
 
 module.exports = {
+    logoutStaff,
     staffLogin,
     generateAccessToken,
-    getMyReviewsById,
-    respondToReview,
-    getAppointmentsByStaff,
-    changeAvailabilityByStaff
-};
+    getAllSlots,
+    saveSelectedSlots,
+    getReviews,
+    respondToReviewByStaff,
+    getAppointments,
+    updateAvailability,
+}

@@ -1,26 +1,20 @@
-const socket = io('http://localhost:3000', {
-    auth: { token: localStorage.getItem('token') }
-});
+const API = `http://localhost:3000`;
 
 
-function logout() {
-  const token = localStorage.getItem("token");
-    if (socket && token) {
-      // Emit logout event via socket only
-      socket.emit("logout", { token });
+async function logout() {
+  try {
+      const token = localStorage.getItem('token'); // Retrieve token from local storage
+      const response = await axios.post(
+          `${API}/admin/logout`,
+          {},
+          { headers: { "Authorization": `Bearer ${token}` } }
+      );
 
-      // Optional: Wait for acknowledgment from server
-      socket.on("logoutSuccess", (msg) => {
-        alert(msg || "Logged out successfully via socket!");
-        localStorage.removeItem("token");
-        window.location.href = "/public/html/home.html"; // Redirect
-      });
-
-      // If error comes back
-      socket.on("logoutError", (errMsg) => {
-        alert("Logout failed: " + errMsg);
-      });
-    } else {
-      alert("User not authenticated or socket not connected.");
-    }
+      alert(response.data.message || ' Admin logged out successfully!');
+      localStorage.removeItem('token'); // Clear the token from storage
+      window.location.href = "/public/html/home.html"; // Redirect to login page
+  } catch (error) {
+      console.error("Logout failed:", error.response ? error.response.data.message : error.message);
+      document.body.innerHTML += `<div style="color:red;">${error.response ? error.response.data.message : error.message}</div>`;
   }
+}

@@ -1,22 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Salon Service Management</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/public/css/styles.css">
 </head>
+
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="/html/admin/home.html" class="nav-link">Home</a></li>
-                <li><a href="/html/admin/serviceList.html" class="nav-link active">Services</a></li>
-                <li><a href="/html/admin/staffList.html" class="nav-link">Staff</a></li>
-                <li><a href="/html/admin/appointmentList.html" class="nav-link">Appointments</a></li>
-                <li><a href="/html/admin/responseByAdmin.html" class="nav-link">Reviews and Responses</a></li>
-                <li><a href="/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
-                
+                <li><a href="/public/html/admin/home.html" class="nav-link">Home</a></li>
+                <li><a href="/public/html/admin/serviceList.html" class="nav-link active">Services</a></li>
+                <li><a href="/public/html/admin/staffList.html" class="nav-link">Staff</a></li>
+                <li><a href="/public/html/admin/appointmentList.html" class="nav-link">Appointments</a></li>
+                <li><a href="/public/html/admin/responseByAdmin.html" class="nav-link">Reviews and Responses</a></li>
+                <li><a href="/public/html/admin/workingHours.html" class="nav-link">Working Hours</a></li>
+
             </ul>
         </nav>
     </header>
@@ -24,35 +26,48 @@
 
     <h2 id="addservice">Add New Service</h2>
     <form>
-        <input type="text" id="serviceName" placeholder="Service Name">
-    <input type="text" id="serviceDescription" placeholder="Description">
-    <input type="number" id="serviceDuration" placeholder="Duration (mins)">
-    <input type="number" id="servicePrice" placeholder="Price (Rs.)">
-    <select id="serviceAvailability">
-        <option value="true">Available</option>
-        <option value="false">Unavailable</option>
-    </select>
-    <button onclick="addService()" id="addBtn" style="display: block;">Add Service</button>
-    <button style="display: none;" id="updateBtn">Update</button>
+        <input type="text" id="serviceName" placeholder="Service Name"><br>
+        <input type="text" id="serviceDescription" placeholder="Description"><br>
+        <input type="number" id="serviceDuration" placeholder="Duration (mins)"><br>
+        <input type="number" id="servicePrice" placeholder="Price (Rs.)"><br>
+        <select id="serviceAvailability">
+            <option value="true">Available</option>
+            <option value="false">Unavailable</option>
+        </select><br>
+        <input type="hidden" id="serviceId">
+
+        <button onclick="addService(event)" id="addBtn" style="display: block;">Add Service</button>
+        <button onclick="updateService(event)" style="display: none;" id="updateBtn">Update</button>
 
     </form>
-    
+
     <h2 id="servicelist">Service List</h2>
+    <label for="itemsPerPage">Services per page:</label>
+    <select id="itemsPerPage">
+        <option value="5" selected>5</option>
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+    </select>
     <table border="1">
         <thead>
-          <tr>
-            <th>ID</th>
-            <th>Service Name</th>
-            <th>Description</th>
-            <th>Duration</th>
-            <th>Price</th>
-            <th>Available</th>
-            <th>Actions</th>
-          </tr>
+            <tr>
+                <th>ID</th>
+                <th>Service Name</th>
+                <th>Description</th>
+                <th>Duration</th>
+                <th>Price</th>
+                <th>Available</th>
+                <th>Actions</th>
+            </tr>
         </thead>
         <tbody id="serviceList"></tbody>
-      </table>
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/js/admin/serviceList.js"></script>
+    </table>
+
+    <div id="pagination"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <script src="/public/js/admin/serviceList.js"></script>
 </body>
+
 </html>

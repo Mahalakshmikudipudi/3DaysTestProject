@@ -1,6 +1,5 @@
-const socket = io('http://localhost:3000', {
-    auth: { token: localStorage.getItem('token') }
-});
+const API = `http://localhost:3000`;
+const token = localStorage.getItem("token");
 
 function getUserIdFromToken() {
     const token = localStorage.getItem("token"); // Retrieve stored token
@@ -15,396 +14,488 @@ function getUserIdFromToken() {
     }
 };
 
-function convertTo12HourFormat(time24) {
-    const [hour, minute] = time24.split(':');
-    const hourInt = parseInt(hour);
-    const period = hourInt >= 12 ? 'PM' : 'AM';
-    const hour12 = hourInt % 12 === 0 ? 12 : hourInt % 12;
-    return `${hour12}:${minute} ${period}`;
+window.onload = function () {
+    const dateInput = document.getElementById('date');
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in yyyy-mm-dd format
+    dateInput.setAttribute('min', today); // Set it as min
+};
+
+// helper function to format 24h time to 12h
+function formatTime(time24) {
+    const [hours, minutes] = time24.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours));
+    date.setMinutes(parseInt(minutes));
+
+    let options = { hour: 'numeric', minute: 'numeric', hour12: true };
+    return date.toLocaleTimeString([], options);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+    try {
+        const response = await axios.get(`${API}/admin/get-all-services`,
+            { headers: { "Authorization": `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+            const serviceSelect = document.getElementById('service');
+            serviceSelect.innerHTML = '<option value="">-- Select Service --</option>';
+
+            response.data.services.forEach(service => {
+                const option = document.createElement('option');
+                option.value = service.id;
+                option.textContent = service.name;
+                serviceSelect.appendChild(option);
+            });
+        }
+    } catch (err) {
+        console.error("Error:", err.response ? err.response.data.message : err.message);
+        document.body.innerHTML += `<div style="color:red;">${err.response ? err.response.data.message : err.message}</div>`;
+    }
+
+});
+
+
+
+async function fetchSlots(e) {
+    const date = document.getElementById("date").value;
+    const serviceId = document.getElementById("service").value;
+    try {
+        e.preventDefault();
+        const response = await axios.get(`${API}/customer/get-available-slots`, {
+            params: { date, serviceId },
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        document.getElementById("bookingForm").style.display = 'none';
+        document.getElementById("search-container").style.display = 'block';
+        const slots = response.data.formattedSlots;
+        console.log(response.data.formattedSlots);
+        const slotContainer = document.getElementById('slotContainer');
+        slotContainer.innerHTML = '';
+        const today = new Date().toISOString().split('T')[0]; // today's date yyyy-mm-dd
+        let filteredSlots = slots;
+
+        if (date === today) {
+            const now = new Date();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes(); // current time in total minutes
+
+            filteredSlots = slots.filter(slot => {
+                const [startHours, startMinutes] = slot.startTime.split(":").map(Number);
+                const slotMinutes = startHours * 60 + startMinutes;
+                return slotMinutes > currentMinutes; // keep only slots after now
+            });
+        }
+
+        if (filteredSlots.length === 0) {
+            slotContainer.innerHTML = '<p>No upcoming slots available today.</p>';
+        } else {
+            filteredSlots.forEach(slot => {
+                displaySlots(slot);
+            });
+        }
+
+
+
+    } catch (err) {
+        console.error("Error fetching slots:", err);
+    }
+};
+
+function displaySlots(slot) {
+    const slotContainer = document.getElementById('slotContainer');
+
+    const btn = document.createElement('button');
+
+    const startFormatted = formatTime(slot.startTime);
+    const endFormatted = formatTime(slot.endTime);
+
+    // Set button class based on isDisabled
+    btn.className = 'slot-button ' + (slot.isDisabled ? 'disabled' : 'enabled');
+
+    btn.innerText = `${startFormatted} - ${endFormatted}\nStaff: ${slot.staffName}`;
+
+    // Correctly disable button if slot is disabled
+    btn.disabled = slot.isDisabled; 
+
+    slotContainer.appendChild(btn);
+
+    // Only allow onclick if the button is not disabled
+    if (!slot.isDisabled) {
+        btn.onclick = () => {
+            selectedNewSlot = {
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                staffName: slot.staffName,
+                staffId: slot.staffId,
+                serviceId: slot.serviceId,
+                serviceName: slot.serviceName,
+                servicePrice: slot.servicePrice,
+                date: slot.date,
+                slotId: slot.slotId
+            };
+    
+            openPopup(selectedNewSlot);
+        };
+    }
+    
 }
 
 
-document.addEventListener('DOMContentLoaded', () => {
+document.getElementById("search").addEventListener('click', async () => {
+    document.getElementById("timeInput").style.display = 'block';
+})
 
-    const timeInput = document.getElementById("timeInput");
-    const timeOptions = document.getElementById("timeOptions");
-    const serviceInput = document.getElementById('service');
-    const staffInput = document.getElementById('staff');
-    const tableBody = document.getElementById('appointmentTableBody');
-    const dateInput = document.getElementById('date');
-    const timeDropdown = document.getElementById("timeDropdown");
-    const fromTimeInput = document.getElementById("fromTime");
-    const toTimeInput = document.getElementById("toTime");
-    const searchBtn = document.getElementById("searchSlotsBtn");
-
-    searchBtn.addEventListener("click", () => {
+async function searchSlots(e) {
+    try {
+        e.preventDefault();
         const date = document.getElementById("date").value;
-        const serviceId = serviceInput.value;
-        const staffId = staffInput.value;
-        const fromTime = fromTimeInput.value;
-        const toTime = toTimeInput.value;
+        const serviceId = document.getElementById("service").value;
+        const fromTime = document.getElementById("fromTimeInput").value;
+        const toTime = document.getElementById("toTimeInput").value;
 
-
-        if (!date || !serviceId || !fromTime || !toTime) {
-            alert("Please fill in all fields.");
-            return;
-        }
-
-        // Emit socket event to fetch available slots
-        socket.emit("get-available-slots", {
-            serviceId,
-            staffId,
-            date,
-            fromTime,
-            toTime
-        });
-    });
-
-    socket.on("availableSlotsResult", (slots) => {
-        // Get selected date and today's date
-        const selectedDate = document.getElementById("date").value;
-        const today = new Date().toISOString().split("T")[0];
-        const now = new Date();
-    
-        // Clear previous options
-        timeDropdown.innerHTML = '<option value="">-- Select Time Slot --</option>';
-    
-        // Filter out past time slots if selected date is today
-        const filteredSlots = slots.filter(slot => {
-            if (selectedDate !== today) return true;
-    
-            const [hours, minutes] = slot.split(":").map(Number);
-            const slotTime = new Date();
-            slotTime.setHours(hours, minutes, 0, 0);
-            return slotTime > now;
-        });
-    
-        filteredSlots.forEach(slot => {
-            const option = document.createElement("option");
-            option.value = slot;
-            option.textContent = convertTo12HourFormat(slot);
-            timeDropdown.appendChild(option);
-        });
-    
-        if (filteredSlots.length > 0) {
-            const rect = timeInput.getBoundingClientRect();
-            timeDropdown.style.left = `${rect.left}px`;
-            timeDropdown.style.top = `${rect.bottom + window.scrollY}px`;
-            timeDropdown.style.width = `${rect.width}px`;
-            timeDropdown.style.display = "block";
-        } else {
-            timeDropdown.style.display = "none";
-        }
-    });
-    timeDropdown.addEventListener("change", () => {
-        const selectedTime = timeDropdown.value;
-        if (selectedTime) {
-            timeInput.value = selectedTime;
-            timeDropdown.style.display = "none";
-        }
-    });
-        
-
-
-    timeInput.addEventListener("click", () => {
-        timeOptions.style.display = timeOptions.style.display === "block" ? "none" : "block";
-    });
-
-    document.querySelectorAll('.time-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            timeInput.style.display = 'block';
-            const timeRange = btn.getAttribute('data-time');
-            timeInput.value = timeRange;
-            displaySlotsByRange(timeRange);
-            timeOptions.style.display = 'none';
-            timeDropdown.style.display = "block";
-        });
-    });
-
-    serviceInput.addEventListener('focus', () => {
-        socket.emit('get-services');
-    });
-
-    socket.on('service-list', services => {
-        serviceInput.innerHTML = '<option value="">-- Select Service --</option>';
-        services.forEach(service => {
-            const option = document.createElement('option');
-            option.value = service.id;
-            option.textContent = service.name;
-            serviceInput.appendChild(option);
-        });
-    });
-
-    serviceInput.addEventListener('change', () => {
-        const serviceId = serviceInput.value;
-        console.log("Service Id", serviceId);
-        if (serviceId) {
-            socket.emit('get-staff-by-service', { serviceId });
-        }
-        checkAndFetchSlots(); // existing logic
-    });
-    
-    socket.on('staff-list-by-service', staffList => {
-        console.log("StaffList", staffList);
-        staffInput.innerHTML = '<option value="">-- Select Staff --</option>';
-        staffList.forEach(staff => {
-            const option = document.createElement('option');
-            option.value = staff.id;
-            option.textContent = staff.staffname;
-            staffInput.appendChild(option);
-        });
-    });
-    
-
-    dateInput.addEventListener('change', checkAndFetchSlots);
-    serviceInput.addEventListener('change', checkAndFetchSlots);
-    staffInput.addEventListener('change', checkAndFetchSlots);
-
-
-    function checkAndFetchSlots() {
-        const selectedDate = dateInput.value;
-        const selectedService = serviceInput.value;
-        const selectedStaff = staffInput.value;
-    
-        const today = new Date().toISOString().split('T')[0];
-        if (selectedDate < today) {
-            alert("You cannot select a past date!");
-            return;
-        }
-    
-        if (selectedDate && selectedService && selectedStaff) {
-            socket.emit('get-available-slots', {
-                date: selectedDate,
-                serviceId: selectedService,
-                staffId: selectedStaff
-            });
-        }
-    }
-    
-
-
-    bookingForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-    
-        const serviceId = serviceInput.value;
-        const date = dateInput.value;
-        const time = timeDropdown.value;
-        const selectedStaffId = staffInput.value || null; // optional staff
-    
-        if (!serviceId || !date || !time) {
-            alert("Please fill in all required fields.");
-            return;
-        }
-    
-        const appointmentData = {
-            serviceId,
-            date,
-            time,
-            selectedStaffId // add staffId if selected, else null
-        };
-    
-        if (editingAppointmentId) {
-            socket.emit('reschedule-appointment', {
-                ...appointmentData,
-                appointmentId: editingAppointmentId
-            });
-            alert("Appointment updated successfully!");
-        } else {
-            socket.emit('book-appointment', appointmentData);
-        }
-    
-        bookingForm.reset();
-        editingAppointmentId = null;
-        document.getElementById('submitBtn').textContent = "Book Appointment";
-    });
-    
-
-
-    // Add newly booked appointment to table
-    socket.on('appointment-added', (data) => {
-        if (data && data.appointmentId) {
-            localStorage.setItem('appointmentId', data.appointmentId);
-            console.log("AppointmentId", data.appointmentId);
-            console.log("ServiceId", data.serviceId);
-            initiatePayment(data.appointmentId, data.serviceId);
-
-        }
-        localStorage.setItem('staffId', data.staffId);
-        addAppointmentToTable(data);
-    });
-
-    // Get appointments for user on page load
-    const userId = getUserIdFromToken();
-    socket.emit('get-user-appointments', { userId });
-
-    socket.on('user-appointment-list', (appointments) => {
-        tableBody.innerHTML = '';
-
-        appointments.forEach(appointment => {
-            addAppointmentToTable(appointment);
-        });
-
-        attachActionHandlers();
-    });
-
-    function attachActionHandlers() {
-        document.querySelectorAll('.reschedule-btn').forEach(btn => {
-            btn.addEventListener('click', handleReschedule);
-        });
-
-        document.querySelectorAll('.cancel-btn').forEach(btn => {
-            btn.addEventListener('click', handleCancel);
-        });
-
-    }
-
-
-    // Append appointment to table
-    function addAppointmentToTable(appointment) {
-        const existingRow = document.querySelector(`tr[data-id="${appointment.id}"]`);
-        if (existingRow) {
-            existingRow.remove();
-        }
-        const row = document.createElement('tr');
-        row.setAttribute('data-id', appointment.id);
-        row.setAttribute('data-service-id', appointment.service?.id);
-        const isCompleted = appointment.status?.toLowerCase() === 'completed';
-        const timeFormatted = convertTo12HourFormat(appointment.time);
-        row.innerHTML = `
-            <td>${appointment.id}</td>
-            <td>${appointment.user?.name || '-'}</td>
-            <td>${appointment.date}</td>
-            <td>${timeFormatted} </td>
-            <td>${appointment.Staff.staffname}</td>
-            <td>${appointment.service?.name || '-'}</td>
-            <td>
-                ${isCompleted ? 'Completed' : `
-                <button class="reschedule-btn" data-id="${appointment.id}">Reschedule</button>
-                <button class="cancel-btn" data-id="${appointment.id}">Cancel</button>
-            `}
-            </td>
-            `;
-        tableBody.appendChild(row);
-    }
-
-    let editingAppointmentId = null; // global variable
-
-    function handleReschedule(e) {
-        e.preventDefault();
-        const appointmentId = e.target.dataset.id;
-    
-        const row = e.target.closest('tr');
-        const date = row.children[2].textContent;
-        const time = row.children[3].textContent;
-        const serviceName = row.children[4].textContent;
-        const staffName = row.children[5]?.textContent; // assuming staff name is in 6th column
-    
-        // Prefill form
-        document.getElementById('date').value = date;
-        document.getElementById('timeInput').value = time;
-    
-        const serviceOptions = document.getElementById('service').options;
-        for (let i = 0; i < serviceOptions.length; i++) {
-            if (serviceOptions[i].text === serviceName) {
-                serviceOptions[i].selected = true;
-                break;
+        const response = await axios.get(`${API}/customer/search-slots`, {
+            params: { date, serviceId, fromTime, toTime },
+            headers: {
+                'Authorization': `Bearer ${token}`
             }
-        }
-    
-        const staffOptions = document.getElementById('staff').options;
-        if (staffName && staffName !== "Not assigned") {
-            for (let i = 0; i < staffOptions.length; i++) {
-                if (staffOptions[i].text === staffName) {
-                    staffOptions[i].selected = true;
-                    break;
-                }
-            }
-        } else {
-            document.getElementById('staff').selectedIndex = 0; // Default to "-- Select Staff --"
-        }
-    
-        editingAppointmentId = appointmentId;
-    
-        document.getElementById('bookingForm').scrollIntoView({ behavior: 'smooth' });
-        document.getElementById('submitBtn').textContent = "Update Appointment";
-    }
-    
-
-    function handleCancel(e) {
-        e.preventDefault();
-        const appointmentId = e.target.dataset.id;
-
-        const confirmCancel = confirm("Are you sure you want to cancel this appointment?");
-        if (confirmCancel) {
-            socket.emit('cancel-appointment', appointmentId);
-        }
-    }
-
-    socket.on('appointment-cancelled', (appointmentId) => {
-        const row = document.querySelector(`tr[data-id="${appointmentId}"]`);
-        if (row) row.remove();
-        alert("Appointment cancelled successfully!");
-    });
-    socket.on("appointment-cancel-failed", (message) => {
-        alert(message);
-    });
-
-    function initiatePayment(appointmentId, serviceId) {
-        const cashfree = Cashfree({ mode: "sandbox" });
-
-        // Check if payment already done
-        socket.emit("check-appointment-payment", { appointmentId });
-
-        socket.once("appointment-payment-status", ({ isPaid }) => {
-            if (isPaid) {
-                alert("Payment already completed for this appointment.");
-                return;
-            }
-
-            socket.emit("initiate-payment", { appointmentId, serviceId });
-
-            socket.once("payment-initiated", async ({ paymentSessionId, orderId }) => {
-                try {
-                    const checkoutOptions = {
-                        paymentSessionId,
-                        orderId,
-                        redirectTarget: "_modal"
-                    };
-
-                    await cashfree.checkout(checkoutOptions);
-
-                    // Wait for a few seconds to ensure payment propagation
-                    setTimeout(() => {
-                        socket.emit("update-transaction", { orderId, paymentSessionId });
-                    }, 5000);
-
-                } catch (err) {
-                    console.error("Cashfree checkout error:", err);
-                    alert("Payment failed to start.");
-                }
-            });
-
-            socket.once("transaction-updated", () => {
-                alert("Payment Successful!");
-                window.location.href = "/html/customers/bookingAppointment.html";
-                alert('Appointment booked!');
-            });
-
-            socket.once("transaction-update-failed", (data) => {
-                alert("Payment incomplete: " + data.message);
-            });
         });
+
+        if (response.data.success) {
+            const slotContainer = document.getElementById('slotContainer');
+            slotContainer.innerHTML = ''; // Clear old slots first
+
+            response.data.slots.forEach(slot => {
+                displaySlots(slot);
+            });
+        }
+
+    } catch (err) {
+        console.log("Error searching slots:", err);
+
     }
+}
+
+const popupModal = document.getElementById('popupModal');
+const closeModal = document.getElementById('closeModal');
+const serviceNameElem = document.getElementById('serviceName');
+const servicePriceElem = document.getElementById('servicePrice');
+const staffNameElem = document.getElementById('staffName');
+const slotTimeElem = document.getElementById('slotTime');
+const bookPayBtn = document.getElementById('bookPayBtn');
+
+// Close modal
+closeModal.onclick = function () {
+    popupModal.style.display = "none";
+};
+window.onclick = function (event) {
+    if (event.target === popupModal) {
+        popupModal.style.display = "none";
+    }
+};
+
+// Open modal with slot data
+function openPopup(slotData) {
+    const startFormatted = formatTime(slotData.startTime);
+    serviceNameElem.innerText = `Service Name: ${slotData.serviceName}`;
+    servicePriceElem.innerText = `Service Price: ₹${slotData.servicePrice}`;
+    staffNameElem.innerText = `Staff Name: ${slotData.staffName}`;
+    slotTimeElem.innerText = `Slot Time: ${startFormatted}`;
 
 
-    socket.on("payment-error", ({ message }) => {
-        alert(`Payment Error: ${message}`);
-    });
 
+    // Pass slotData to bookAndPay when the button is clicked
+    bookPayBtn.onclick = async function () {
+        bookAndPay(slotData);
+    };
 
+    popupModal.style.display = "flex";
+}
 
-    // Debugging error
-    socket.on('connect_error', err => {
-        console.error("Socket connection error:", err.message);
-    });
+const cashfree = Cashfree({
+    mode: "sandbox",
 });
+
+
+// Handle Book and Pay
+async function bookAndPay(slotData) {
+    try {
+        const serviceId = slotData.serviceId;
+        const time = slotData.startTime;
+        const date = slotData.date;
+        const staffId = slotData.staffId;
+        const slotId = slotData.slotId;
+        const response = await fetch(`${API}/customer/book-and-pay`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}` // Send token for authentication
+            },
+            body: JSON.stringify({
+                serviceId: serviceId,
+                time,
+                date,
+                staffId,
+                slotId
+            })
+        });
+        const data = await response.json();
+        console.log(data);
+        const paymentSessionId = data.paymentSessionId;
+        const orderId = data.orderId; // Ensure backend sends orderId
+
+        //console.log("paymentId:", orderId);
+
+        let checkoutOptions = {
+            paymentSessionId: paymentSessionId,
+            orderId: orderId,
+            redirectTarget: "_modal",
+
+        };
+
+        // Start the checkout process
+        await cashfree.checkout(checkoutOptions);
+        updateTransactionStatus(paymentSessionId, orderId);
+        const newAppointment = data.appointment;
+        addNewAppointmentToUI(newAppointment);
+        const appointmentsPerPage = localStorage.getItem("appointmentsPerPage") || 5;
+        await getAppointmentsById(1, appointmentsPerPage);
+    } catch (error) {
+        console.error("Error initiating payment:", error.message);
+        alert("Payment initiation failed. Please try again.");
+    }
+};
+
+async function updateTransactionStatus(paymentSessionId, orderId) {
+    try {
+        const response = await fetch(`${API}/customer/update-transaction`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}` // Send token for authentication
+            },
+            body: JSON.stringify({
+                orderId: orderId,
+                paymentSessionId: paymentSessionId
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            alert("Transaction Updated Successfully!");
+            alert("Appointment booked successfully");
+            window.location.href = "/public/html/customers/bookingAppointment.html";
+
+
+        } else {
+            alert("Transaction update failed: " + data.message);
+        }
+    } catch (error) {
+        console.error("Error updating transaction:", error);
+    }
+};
+
+function addNewAppointmentToUI(appointment) {
+    const appointmentTableBody = document.getElementById("appointmentTableBody");
+
+    const row = document.createElement('tr');
+    row.classList.add('appointment-row');
+    row.dataset.id = appointment.id;
+    row.dataset.date = appointment.date;
+    row.dataset.serviceName = appointment.Service.name;
+    row.dataset.staffName = appointment.Staff.staffname; 
+    const timeFormatted = formatTime(appointment.time);
+    let actionButtons = '';
+
+    if (appointment.status === 'completed') {
+        actionButtons = `<td>Completed</td>`;
+    } else {
+        actionButtons = `
+            <td>
+                <button class="reschedule-btn" onclick="rescheduleAppointment(event, ${appointment.id})">Reschedule</button>
+                <button class="cancel-btn" onclick="cancelAppointment(event, ${appointment.id})">Cancel</button>
+            </td>`;
+    }
+    row.innerHTML = `
+        <td>${appointment.id}</td>
+        <td>${appointment.user.name}</td>
+        <td>${appointment.date}</td>
+        <td>${timeFormatted }</td>
+        <td>${appointment.Service.name}</td>
+        <td>${appointment.Staff.staffname}</td>
+        ${actionButtons}
+        `;
+    appointmentTableBody.appendChild(row);
+};
+
+window.addEventListener("DOMContentLoaded", async () => {
+    const appointmentsPerPage = localStorage.getItem("appointmentsPerPage") || 5; // Default to 5
+    document.getElementById("itemsPerPage").value = appointmentsPerPage; // Set dropdown value
+    await getAppointmentsById(1, appointmentsPerPage);
+});
+
+// Event listener for dropdown to update preference
+document.getElementById("itemsPerPage").addEventListener("change", async function () {
+    const selectedLimit = this.value;
+    localStorage.setItem("appointmentsPerPage", selectedLimit); // Store user preference
+    await getAppointmentsById(1, selectedLimit); // Fetch data with new limit
+});
+
+async function getAppointmentsById(page, limit) {
+    try {
+        const response = await axios.get(`${API}/customer/get-appointment-by-id?page=${page}&limit=${limit}`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        let appointments = response.data.appointments;
+        appointments = Array.isArray(appointments) ? appointments : [appointments]; // Always make it an array
+
+        console.log(appointments);
+        appointments.forEach(appointment => {
+            addNewAppointmentToUI(appointment);
+        });
+        showPagination(response.data);
+    } catch (err) {
+        console.log("Error getting appointments", err);
+        alert("Getting appointments failed");
+    }
+};
+
+// Update pagination buttons
+async function showPagination({ currentPage, hasNextPage, nextPage, hasPreviousPage, previousPage, lastPage }) {
+    try {
+        const pagination = document.getElementById("pagination");
+        pagination.innerHTML = '';
+
+        const limit = localStorage.getItem("appointmentsPerPage") || 5; // Get stored limit
+
+        if (hasPreviousPage) {
+            const btnPrev = document.createElement('button');
+            btnPrev.innerHTML = previousPage;
+            btnPrev.addEventListener('click', () => getAppointmentsById(previousPage, limit));
+            pagination.appendChild(btnPrev);
+        }
+
+        const btnCurrent = document.createElement('button');
+        btnCurrent.innerHTML = `<h3>${currentPage}</h3>`;
+        btnCurrent.addEventListener('click', () => getAppointmentsById(currentPage, limit));
+        pagination.appendChild(btnCurrent);
+
+        if (hasNextPage) {
+            const btnNext = document.createElement('button');
+            btnNext.innerHTML = nextPage;
+            btnNext.addEventListener('click', () => getAppointmentsById(nextPage, limit));
+            pagination.appendChild(btnNext);
+        }
+    } catch (err) {
+        console.log(err);
+    }
+};
+
+let rescheduleInfo = null;
+
+function rescheduleAppointment(e, appointmentId) {
+    e.preventDefault();
+    const row = e.target.closest(".appointment-row");
+
+    if (!row) {
+        console.error("Could not find the row. Is .appointment-row class missing?");
+        return;
+    }
+
+    // Store info needed for updating
+    rescheduleInfo = {
+        appointmentId,
+        date: row.dataset.date,
+        serviceName: row.dataset.serviceName,
+        staffName: row.dataset.staffName
+    };
+
+    // Pre-fill date and service
+    document.getElementById("date").value = row.dataset.date;
+
+    const serviceSelect = document.getElementById("service");
+    const options = Array.from(serviceSelect.options);
+    const matchedOption = options.find(opt => opt.textContent === row.dataset.serviceName);
+    if (matchedOption) {
+        matchedOption.selected = true;
+    }
+
+    // Show search slots section
+    document.getElementById("bookingForm").style.display = 'block';
+    document.getElementById("search-container").style.display = 'none';
+    document.getElementById("slotContainer").innerHTML = '';
+
+    // Change button visibility
+    document.getElementById("bookPayBtn").style.display = 'none';
+    document.getElementById("update-btn").style.display = 'block';
+
+    // Fetch new slots for selected date and service
+    fetchSlots(e);
+}
+
+
+document.getElementById("update-btn").addEventListener("click", async () => {
+    if (!rescheduleInfo || !selectedNewSlot) {
+        alert("Please select a new slot to reschedule.");
+        return;
+    }
+
+    try {
+        const response = await axios.put(`${API}/customer/reschedule-appointment/${rescheduleInfo.appointmentId}`, {
+            newDate: selectedNewSlot.date,
+            newTime: selectedNewSlot.startTime,
+            newStaffId: selectedNewSlot.staffId,
+            newSlotId: selectedNewSlot.slotId
+        }, {
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+
+        if (response.data.success) {
+            alert("Appointment rescheduled successfully!");
+            location.reload();
+        } else {
+            alert("Rescheduling failed: " + response.data.message);
+        }
+    } catch (error) {
+        console.error("Error rescheduling:", error);
+        alert("Rescheduling error occurred.");
+    }
+});
+
+
+async function cancelAppointment(e, appointmentId) {
+    try {
+        const response = await axios.delete(`${API}/customer/delete-appointment/${appointmentId}`,
+            { headers: { "Authorization": `Bearer ${token}` } }
+        );
+
+        if (response.data.success) {
+            alert(response.data.message);
+            location.reload();
+            updateAppointmentStatusInUI(appointmentId, response.data.appointment);
+        } else {
+            alert(data.message || "Failed to delete staff.");
+        }
+    } catch (error) {
+        console.error("Delete error:", error);
+        alert("An error occurred while deleting the staff.");
+    }
+};
+
+function updateAppointmentStatusInUI(appointmentId, newStatus) {
+    const row = document.querySelector(`[data-id='${appointmentId}']`).closest('tr');
+    row.cells[6].innerText = newStatus; // Update the status column with 'Canceled'
+}
+
+
+
+
+
+
+
+
+

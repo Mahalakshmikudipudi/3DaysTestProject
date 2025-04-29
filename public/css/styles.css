@@ -615,42 +615,92 @@ button.delete-btn:hover {
   #workingHoursList li:hover {
     background-color: #f1f1f1;
   }
-  #pagination-controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-    margin-top: 20px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  }
-
-  #pagination-controls button {
-    padding: 8px 16px;
-    font-size: 14px;
+  
+  .slot-button {
+    background-color: green;
+    color: white;
+    margin: 5px;
+    padding: 10px;
     border: none;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.slot-button.selected {
+    background-color: gray;
+}
+.slot-button:disabled,
+.booked-slot {
+    background-color: #ccc; /* grey */
+    color: #666;
+    cursor: not-allowed;
+}
+.search-container {
+    background-color: #f9f9f9;
+    padding: 20px 25px;
+    margin: 20px auto;
+    border-radius: 8px;
+    width: 400px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+/* Date Picker */
+.date-picker {
+    margin-top: 10px;
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+}
+
+/* Search Button */
+.search-btn {
+    margin-top: 15px;
+    padding: 10px 18px;
     background-color: #4CAF50;
     color: white;
+    border: none;
     border-radius: 6px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
-  }
+    font-size: 16px;
+}
 
-  #pagination-controls button:hover {
+.search-btn:hover {
     background-color: #45a049;
+}
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
   }
-
-  #pagination-controls button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
+  .modal-content {
+    background: white;
+    padding: 20px;
+    width: 300px;
+    border-radius: 10px;
+    position: relative;
   }
-
-  #pageIndicator {
-    font-weight: bold;
-    font-size: 16px;
-    color: #333;
+  .close {
+    position: absolute;
+    right: 10px;
+    top: 5px;
+    font-size: 20px;
+    cursor: pointer;
   }
-  #staffPageIndicator {
-    font-weight: bold;
-    font-size: 16px;
-    color: #333;
+  #bookPayBtn {
+    background-color: green;
+    color: white;
+    margin: 5px;
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+    border-radius: 5px;
   }

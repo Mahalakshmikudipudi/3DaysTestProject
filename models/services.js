@@ -1,5 +1,5 @@
 const Sequelize = require('sequelize');
-const sequelize = require('../config/database');
+const sequelize = require('../util/database');
 
 // Define Service Model
 const Service = sequelize.define("Service", {

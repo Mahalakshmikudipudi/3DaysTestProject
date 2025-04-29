@@ -1,33 +1,34 @@
-function generateSlots(from, to, duration, staffStart, staffEnd) {
-  console.log(from, to, duration, staffEnd, staffStart);
-  const slots = [];
-  let current = toMinutes(from);
-  const toLimit = toMinutes(to);
-  const staffStartMin = toMinutes(staffStart);
-  const staffEndMin = toMinutes(staffEnd);
+const moment = require('moment');
 
-  while (current + duration <= toLimit) {
-      if (current >= staffStartMin && current + duration <= staffEndMin) {
-          const startSlot = toHHMM(current);
-          const endSlot = toHHMM(current + duration);
-          slots.push(`${startSlot}`);
+function generateSlots(startTime, endTime, serviceDuration, selectedDate) {
+  const slots = [];
+
+  let start = moment(startTime, "HH:mm");
+  const end = moment(endTime, "HH:mm");
+
+  const selected = moment(selectedDate, "YYYY-MM-DD");
+  const today = moment().startOf('day');
+
+  if (selected.isSame(today, 'day')) {
+    const now = moment();
+    if (now.isAfter(start)) {
+      const nextHour = now.clone().add(1, 'hours').startOf('hour');
+      if (nextHour.isBefore(end)) {
+        start = nextHour;
       }
-      current += duration;
+    }
   }
-  //console.log("Slots is", slots);
+
+  while (start.clone().add(serviceDuration, 'minutes').isSameOrBefore(end)) {
+    const slotStart = start.format("HH:mm");
+    const slotEnd = start.clone().add(serviceDuration, 'minutes').format("HH:mm");
+
+    slots.push({ start: slotStart, end: slotEnd });
+
+    start.add(serviceDuration, 'minutes');
+  }
+
   return slots;
 }
 
-function toMinutes(timeStr) {
-  const [h, m] = timeStr.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function toHHMM(mins) {
-  const h = String(Math.floor(mins / 60)).padStart(2, "0");
-  const m = String(mins % 60).padStart(2, "0");
-  return `${h}:${m}`;
-}
-
-module.exports = { generateSlots }
-  
+module.exports = { generateSlots };

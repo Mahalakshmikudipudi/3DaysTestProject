@@ -22,7 +22,7 @@ exports.createOrder = async (orderId, orderAmount, orderCurrency = "IND", custom
                 customer_phone: customerPhone,
             },
             order_meta: {
-                return_url: `http://localhost:5000/purchase/payment-status?order_id=${orderId}`,
+                return_url: `http://localhost:5000/customer/payment-status?order_id=${orderId}`,
                 payment_methods: "cc, upi, nb"
             },
             order_expiry_time: formattedExpiryDate

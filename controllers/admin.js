@@ -1,469 +1,391 @@
 const Service = require('../models/services');
-const User = require('../models/user');
+const WorkingHours = require('../models/workingHours');
 const Staff = require('../models/staffMember');
-const Appointment = require('../models/bookingAppointment');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const Review = require('../models/review');
-const WorkingHours = require('../models/workingHours'); // Assuming you have a model for working hours
-const bcrypt = require("bcrypt");
-const sendEmail = require('../service/sendEmail'); // Assuming you have a function to send emails
-const { Op } = require('sequelize');
+const Appointment = require('../models/bookingAppointment');
+const StaffSlots = require('../models/staffSlots');
+const User = require('../models/user');
 
-function convertTo12HourFormat(time24) {
-    const [hour, minute] = time24.split(':').map(Number);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minute.toString().padStart(2, '0')} ${ampm}`;
-}
-
-
-const addService = async (io, socket, data) => {
+const logoutUser = async(req, res) => {
     try {
-        const newService = await Service.create(data);
-        io.emit('service-added', newService); // Broadcast to all
-    } catch (err) {
-        console.error('Failed to add service:', err);
-    }
-};
-
-const getAllServices = async (io, socket) => {
-    try {
-        const services = await Service.findAll();
-        socket.emit('service-list', services);
-    } catch (err) {
-        console.error('Failed to fetch services:', err);
-        socket.emit('error', 'Unable to fetch services');
-    }
-};
-
-const updateService = async (io, socket, data) => {
-    try {
-        const { id, name, description, duration, price, availability } = data;
-
-        // Update the service in DB
-        await Service.update(
-            { name, description, duration, price, availability },
-            { where: { id } }
-        );
-
-        // Fetch the updated service
-        const updatedService = await Service.findByPk(id);
-
-        // Emit updated service to all clients
-        io.emit('service-updated', updatedService);
+        
+        // If using sessions, destroy it
+        if (req.session) {
+            req.session.destroy(err => {
+                if (err) {
+                    return res.status(500).json({ message: 'Logout failed. Try again!' });
+                }
+                res.status(200).json({ message: 'Logged out successfully!' });
+            });
+        } else {
+            res.status(200).json({ message: 'Logged out successfully!' });
+        }
     } catch (error) {
-        console.error('Error updating service:', error);
-        socket.emit('error-service-update', { message: 'Failed to update service.' });
+        res.status(500).json({ message: 'Something went wrong!' });
     }
 };
 
-const addStaff = async (io, socket, data) => {
+const addService = async(req, res, next) => {
     try {
-        console.log("Data is", data);
-        const {
-            staffname,
-            staffemail,
-            staffphone,
-            staffpassword,
-            specializationId,
-            isAvailable,
+        const userId = req.user.id;
+        const { name, description, duration, price, availability } = req.body;
+
+        if (!name || !description || !duration || !price || !availability) {
+            return res.status(400).json({ success: false, message: "All fields are required." });
+        }
+    
+
+        //create service table
+        const service = await Service.create({
+            name,
+            description,
+            duration,
+            price,
+            availability,
+            userId
+        });
+
+        return res.status(200).json({ success: true, service});
+    } catch(err) {
+        console.log("Error adding Service:", err);
+        return res.status(500).json({ success: false, error: err.message});
+    }
+};
+
+const getAllServices = async(req, res, next) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const services = await Service.findAll({
+            offset: (page - 1) * limit,
+            limit: limit,
+            order: [['createdAt', 'ASC']]
+        });
+
+        const totalItems = await Service.count();
+
+        return res.status(200).json({
+            success: true, services,
+            currentPage: page,
+            hasNextPage: limit * page < totalItems,
+            nextPage: page + 1,
+            hasPreviousPage: page > 1,
+            previousPage: page - 1,
+            lastPage: Math.ceil(totalItems / limit),
+        });
+    } catch(err) {
+        console.log("Error getting services:", err);
+        return res.status(500).json({ success: false, error: err.message});
+    }
+};
+
+const editService = async(req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { name, description, duration, price, availability } = req.body;
+
+        const service = await Service.findByPk(id);
+        service.name = name;
+        service.description = description;
+        service.duration = duration;
+        service.price = price;
+        service.availability = availability;
+
+        await service.save();
+
+        return res.status(200).json({ success: true, message: "Service updated successfully", service});
+
+    } catch (error) {
+        console.error("Error updating service:", error);
+        res.status(500).json({ success: false, message: "Server error while updating service." });
+    }
+};
+
+const deleteService = async(req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        await Service.destroy({
+            where: { id }
+        });
+
+        return res.status(200).json({success: true, message: "Service deleted Successfully"});
+    } catch (err) {
+        console.error("Delete service error:", err);
+        return res.status(500).json({ success: false, message: "Failed to delete service." });
+    }
+};
+
+const addWorkingHours = async(req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { day, startTime, endTime } = req.body;
+        const workingHour = await WorkingHours.create({
+            day,
             startTime,
-            endTime
-        } = data;
+            endTime,
+            userId
+        });
 
-        const userId = socket.user.id; // Assuming user ID is stored in socket.user
+        return res.status(200).json({ success: true, workingHour});
+    } catch (err) {
+        console.error("Add workinghour error:", err);
+        return res.status(500).json({ success: false, message: "Failed to add workinghour." });
+    }
+};
 
+const getWorkingHours = async(req, res, next) => {
+    try {
+        const workingHours = await WorkingHours.findAll();
+
+        res.status(200).json({success: true, workingHours});
+    } catch(err) {
+        console.log("Get workinghours err:", err);
+        return res.status(500).json({ success: false, message: "Failed to get workinghours." });
+    }
+};
+
+const updateWorkingHours = async(req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { day, startTime, endTime } = req.body;
+
+        const workingHour = await WorkingHours.findByPk(id);
+        workingHour.day = day;
+        workingHour.startTime = startTime;
+        workingHour.endTime = endTime;
+        
+        await workingHour.save();
+
+        return res.status(200).json({success: true, workingHour, message: "WorkingHour updated successfully"})
+    } catch(err) {
+        console.log("Update workinghours err:", err);
+        return res.status(500).json({ success: false, message: "Failed to update workinghours." });
+    }
+};
+
+const addStaff = async(req, res, next) => {
+    try {
+
+        const userId = req.user.id;
+        const { staffname, staffemail, staffphone, staffpassword, specializationId, isAvailable } = req.body;
+
+        if (!staffname || !staffemail || !staffphone || !staffpassword || !isAvailable || !specializationId) {
+            return res.status(400).json({ success: false, message: "All fields are required." });
+        }
+    
         // Hash the password before saving
         const hashedPassword = await bcrypt.hash(staffpassword, 10);
 
-        // Create staff
-        const newStaff = await Staff.create({
+        //create service table
+        const staff = await Staff.create({
             staffname,
             staffemail,
             staffphone,
             staffpassword: hashedPassword,
             specializationId,
             isAvailable,
-            startTime,
-            endTime,
             userId
         });
 
-        // Fetch with specialization for emitting
-        const fullStaff = await Staff.findByPk(newStaff.id, {
-            include: [{ model: Service, as: 'specialization', attributes: ['name'] }]
-        });
-
-        console.log("Fullstaff", fullStaff);
-
-        // Emit the newly created staff member to all clients
-        io.emit('staff-added', fullStaff);
-    } catch (error) {
-        console.error('Error adding staff:', error);
-        socket.emit('error', 'Failed to add staff.');
+        return res.status(200).json({ success: true, message:"Staff added Successfully", staff});
+    } catch(err) {
+        console.log("Error adding Staff:", err);
+        return res.status(500).json({ success: false, error: err.message});
     }
 };
 
-const getAllStaff = async (io, socket, data) => {
+const getAllStaff = async(req, res, next) => {
     try {
-        //console.log("Data", data);
-        let { page, limit } = data;
-        const offset = (page - 1) * limit;
-
-        const { count, rows } = await Staff.findAndCountAll({
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const staffList = await Staff.findAll({
             include: [{ model: Service, as: 'specialization', attributes: ['name'] }],
-            offset,
-            limit,
-            order: [['createdAt', 'DESC']]
+            offset: (page - 1) * limit,
+            limit: limit,
+            order: [['createdAt', 'ASC']]
         });
 
-        //console.log("Rows is", rows);
+        const totalItems = await Staff.count();
 
-        socket.emit('staff-list', {
-            staffMembers: rows,
-            total: count,
-            page,
-            totalPages: Math.ceil(count / limit)
+        return res.status(200).json({
+            success: true, staffList,
+            currentPage: page,
+            hasNextPage: limit * page < totalItems,
+            nextPage: page + 1,
+            hasPreviousPage: page > 1,
+            previousPage: page - 1,
+            lastPage: Math.ceil(totalItems / limit),
         });
-    } catch (error) {
-        console.error('Error fetching staff:', error);
-        socket.emit('error', 'Failed to fetch staff.');
+    } catch(err) {
+        console.log("Error getting staff:", err);
+        return res.status(500).json({ success: false, error: err.message});
     }
 };
 
-
-const editStaff = async (io, socket, updatedData) => {
+const editStaff = async(req, res, next) => {
     try {
-        const {
-            id,
-            staffname,
-            staffemail,
-            staffphone,
-            specializationId,
-            isAvailable,
-            startTime,
-            endTime
-        } = updatedData;
+        const { id } = req.params;
+        const { staffname, staffemail, staffphone, specializationId, isAvailable } = req.body;
 
-        const staff = await Staff.findByPk(id);
-        if (!staff) return socket.emit('error', 'Staff not found.');
+        console.log("staffname", staffname);
 
-        await staff.update({
-            staffname,
-            staffemail,
-            staffphone,
-            specializationId,
-            isAvailable,
-            startTime,
-            endTime
-        });
-
-        const updatedStaff = await Staff.findByPk(id, {
-            include: [{ model: Service, as: 'specialization', attributes: ['name'] }]
-        });
-
-        io.emit('staff-updated', updatedStaff);
-    } catch (error) {
-        console.error('Error updating staff:', error);
-        socket.emit('error', 'Failed to update staff.');
-    }
-};
-
-const deleteStaff = async (io, socket, id) => {
-    try {
-        const staff = await Staff.findByPk(id);
-        if (!staff) return socket.emit('error', 'Staff not found.');
-
-        await staff.destroy();
-        io.emit('staff-deleted', id);
-    } catch (error) {
-        console.error('Error deleting staff:', error);
-        socket.emit('error', 'Failed to delete staff.');
-    }
-};
-
-const addWorkingHours = async (io, socket, data) => {
-    try {
-        const { startTime, endTime, day } = data;
-        const newWorkingHour = await WorkingHours.create({
-            startTime,
-            endTime,
-            day
-        });
-
-        io.emit('working-hours-updated', newWorkingHour);
-    } catch (error) {
-        console.error('Error adding working hours:', error);
-        socket.emit('error', 'Failed to add working hours.');
-    }
-};
-
-const getWorkingHours = async (io, socket) => {
-    try {
-
-        const workingHours = await WorkingHours.findAll();
-
-        socket.emit('working-hours-list', workingHours);
-    } catch (error) {
-        console.error('Error fetching working hours:', error);
-        socket.emit('error', 'Failed to fetch working hours.');
-    }
-};
-
-const updateWorkingHours = async (io, socket, data) => {
-    try {
-        const { day, startTime, endTime } = data;
-
-        // Find working hours by day (assuming day is unique in DB)
-        const workingHour = await WorkingHours.findOne({ where: { day } });
-
-        if (!workingHour) {
-            return socket.emit('error', `No working hours found for ${day}.`);
+        const existingStaff = await Staff.findByPk(id);
+        if (!existingStaff) {
+            return res.status(404).json({ success: false, message: "Staff not found" });
         }
 
-        // Update fields
-        workingHour.startTime = startTime;
-        workingHour.endTime = endTime;
-        await workingHour.save();
+        existingStaff.staffname = staffname;
+        existingStaff.staffemail = staffemail;
+        existingStaff.staffphone = staffphone;
+        existingStaff.specializationId = specializationId;
+        existingStaff.isAvailable = isAvailable;
 
-        // Emit updated info to all clients
-        io.emit('working-hours-updated', workingHour);
+        await existingStaff.save();
+
+        return res.json({ success: true, message: "Staff updated successfully", staff: existingStaff });
+
     } catch (error) {
-        console.error('Error updating working hours:', error);
-        socket.emit('error', 'Failed to update working hours.');
+        console.error("Error updating staff:", error);
+        res.status(500).json({ success: false, message: "Server error while updating staff." });
     }
 };
 
+const deleteStaff = async(req, res, next) => {
+    try {
+        const { id } = req.params;
 
-const getAllAppointments = async (io, socket) => {
+        await Staff.destroy({
+            where: { id }
+        });
+
+        return res.status(200).json({success: true, message: "Staff deleted Successfully"});
+    } catch (err) {
+        console.error("Delete staff error:", err);
+        return res.status(500).json({ success: false, message: "Failed to delete staff." });
+    }
+};
+
+const getAllReviews = async(req, res, next) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        const totalItems = await Review.count();
+
+        const reviews = await Review.findAll({
+            include: [
+                            { model: Staff },
+                            {
+                                model: Appointment,
+                                include: [{ model: Service}]
+                            }
+                        ],
+            offset: (page - 1) * limit,
+            limit: limit,
+        });
+
+        
+
+        return res.status(200).json({ success: true, reviews, 
+            currentPage: page,
+            hasNextPage: limit * page < totalItems,
+            nextPage: page + 1,
+            hasPreviousPage: page > 1,
+            previousPage: page - 1,
+            lastPage: Math.ceil(totalItems / limit),
+        });
+    } catch (error) {
+        console.error('Error fetching reviews', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
+const respondToReviewByAdmin = async(req, res, next) => {
+    try {
+        const { reviewId, adminResponse } = req.body;
+      console.log("ReviewId", reviewId, adminResponse);
+  
+      const review = await Review.findByPk(reviewId);
+      if (!review) {
+        return res.status(500).json({success: false, message:'Review not found.'});
+      }
+  
+      // Allow admin to respond only if staff hasn't responded yet
+      if (review.Response) {
+        return res.status(500).json({success: false, message:'Staff already responded. Admin response not allowed.'});
+      }
+  
+      review.Response = adminResponse;
+      await review.save();
+      return res.status(200).json({success: true, review})
+    } catch (error) {
+        console.error("Error in respond-review-by-admin:", error);
+        return res.status(500).json({success: false, message:'Something went wrong'});
+    }
+  
+};
+
+const getAllAppointments = async(req, res, next) => {
     try {
         const appointments = await Appointment.findAll({
             include: [
                 { model: User, attributes: ['name', 'email'] },
                 { model: Staff, attributes: ['staffname'] },
-                { model: Service, as: 'service', attributes: ['id', 'name'] }
+                { model: Service, attributes: ['id', 'name'] }
             ]
         });
-        socket.emit('appointments-data', appointments);
-    } catch (error) {
-        console.error('Error fetching appointments:', error);
-        socket.emit('error', 'Failed to fetch appointments.');
+        return res.status(200).json({success: true, appointments});
+    } catch(err) {
+        return res.status(500).json({success: false, message:"something went wrong"});
     }
+};
+
+const deleteAppointment = async(req, res, next) => {
+    try {
+        const { appointmentId } = req.params;
+        const appointment = await Appointment.findByPk(appointmentId);
+
+        if (!appointment) {
+            return res.status(404).json({ success: false, message: "Appointment not found" });
+        }
+
+        await appointment.destroy({ where: { id: appointmentId}});
+
+
+        const staffSlots = await StaffSlots.findByPk(appointment.slotId, {
+            include: [
+                { model: Staff, attributes: ['id'] },
+                { model: Service, attributes: ['id'] }
+            ]
+        });
+        await staffSlots.update({status: false});
+        return res.status(200).json({ success: true, message: "Appointment deleted successfully", staffSlots, appointment });
+    } catch (err) {
+        console.error('Error canceling appointment:', err);
+        return res.status(500).json({ success: false, message: "Error deleting appointment" });
+    }
+
 }
-
-const getAppointmentById = async(io, socket, id) => {
-    try {
-        const appointment = await Appointment.findByPk(id, {
-            include: [
-                { model: User, attributes: ['name', 'email'] },
-                { model: Staff, attributes: ['staffname'] },
-                { model: Service, as: 'service', attributes: ['name'] }
-            ]
-        });
-
-        if (!appointment) {
-            socket.emit('error', 'Appointment not found.');
-            return;
-        }
-
-        if (appointment.status === 'completed') {
-            return socket.emit('edit-not-allowed', 'This appointment is already completed and cannot be edited.');
-          }
-
-        socket.emit('appointment-data', appointment);
-    } catch (error) {
-        console.error('Error fetching appointment:', error);
-        socket.emit('error', 'Failed to fetch appointment.');
-    }
-};
-
-const getStaffById = async (io, socket, data) => {
-    try {
-        const { serviceId, appointmentId } = data; // Include appointmentId
-        //console.log("Fetching staff for serviceId:", serviceId, "appointmentId:", appointmentId);
-
-        // Validate service existence
-        const service = await Service.findByPk(serviceId);
-        if (!service) {
-            return socket.emit('error', 'Service not found');
-        }
-
-        // Find all staff members related to the service
-        const staffList = await Staff.findAll({
-            where: { specializationId: serviceId },
-            include: [
-                {
-                    model: Service,
-                    as: 'specialization',
-                    attributes: ['id', 'name']
-                }
-            ]
-        });
-
-        //console.log("staffList", staffList);
-
-        // Emit list of staff along with appointmentId
-        socket.emit('staff-list-id', { staffList, appointmentId });
-
-    } catch (err) {
-        console.error('Error fetching staff:', err);
-        socket.emit('error', 'Could not fetch staff');
-    }
-};
-
-
-
-
-const updateAppointment = async(io, socket, data) => {
-    try {
-        // Step 1: Update DB
-        const { appointmentId, staffId } = data;
-        console.log("Appointment ID:", appointmentId);
-        const appointment = await Appointment.findByPk(appointmentId, {
-              include: [
-                { model: User, attributes: ['name', 'email'] },
-                { model: Staff, attributes: ['staffname'] },
-                { model: Service, as: 'service', attributes: ['name'] }
-              ]
-        });
-  
-        if (!appointment) {
-          return socket.emit('error', 'Appointment not found');
-        }
-
-        if(appointment.status === 'completed') {
-            return socket.emit('error', 'Appointment completed not able to update the staff');
-        }
-  
-        // Update staff assignment
-        appointment.assignedStaffId = staffId;
-        await appointment.save();
-
-        const staff = await Staff.findByPk(staffId);
-
-        const timeFormatted = convertTo12HourFormat(appointment.time);
-  
-        await sendEmail({
-              to: appointment.user.email,
-              subject: 'Appointment Updated',
-              html: `
-                <h2>Hello ${appointment.user.name},</h2>
-                <h1>Appointment Updated.</h1>
-                <h3>Details:</h3>
-                <ul>
-                    <li><strong>Service:</strong> ${appointment.service.name}</li>
-                    <li><strong>Date:</strong> ${appointment.date}</li>
-                    <li><strong>Time:</strong> ${timeFormatted}</li>
-                    <li><strong>Staff:</strong> ${staff.staffname}</li>
-                </ul>
-                <p>Thank you!</p>
-              `
-            });
-  
-        // Step 3: Emit confirmation to the requester
-        socket.emit('appointment-updated-success', appointment);
-  
-        // Step 4: Broadcast to others (admin/customer side updates)
-        socket.broadcast.emit('appointment-updated', appointment);
-    } catch (err) {
-        console.error("Error updating appointment:", err);
-        socket.emit('error', 'Error updating appointment');
-    }
-};
-
-const getAllReviewsForAdmin = async (io, socket) => {
-  try {
-    const reviews = await Review.findAll({
-      include: [
-        {
-          model: Appointment,
-          include: [
-            { model: Service, as: 'service' },
-            { model: Staff},
-            { model: User, as: 'user' }
-          ]
-        },
-        { model: Service, as: 'service' },
-        { model: Staff},
-        { model: User, as: 'user' }
-      ],
-      order: [['createdAt', 'DESC']]
-    });
-
-    const formatted = reviews.map(r => ({
-      id: r.id,
-      rating: r.rating,
-      comment: r.comment,
-      staffResponse: r.Response,
-      adminResponse: r.Response,
-      service: r.service || r.Appointment?.service,
-      Staff: r.Staff || r.Appointment?.Staff,
-      user: r.user || r.Appointment?.user
-    }));
-
-    socket.emit('all-reviews', {
-      reviews: formatted,
-      total: formatted.length,
-      page: 1,
-      totalPages: 1 // pagination handled client-side
-    });
-
-  } catch (err) {
-    console.error("Error fetching admin reviews:", err);
-    socket.emit('error', 'Failed to fetch reviews');
-  }
-};
-
-const respondToReviewByAdmin = async (io, socket, data) => {
-    try {
-      const { reviewId, adminResponse } = data;
-      console.log("ReviewId", reviewId, adminResponse);
-  
-      const review = await Review.findByPk(reviewId);
-      if (!review) {
-        return socket.emit('error', 'Review not found.');
-      }
-  
-      // Allow admin to respond only if staff hasn't responded yet
-      if (review.Response) {
-        return socket.emit('error', 'Staff already responded. Admin response not allowed.');
-      }
-  
-      review.Response = adminResponse;
-      await review.save();
-  
-      // Notify admin's own UI
-      socket.emit('review-response-saved-by-admin', review);
-  
-      // Optionally, notify staff or customer if needed
-      // io.to(`staff_${review.staffId}`).emit('admin-review-response', review);
-  
-    } catch (error) {
-      console.error("Error in respond-review-by-admin:", error);
-      socket.emit('error', 'Failed to respond to review');
-    }
-  };
-  
-
-
-
 
 
 module.exports = {
+    logoutUser,
     addService,
     getAllServices,
-    updateService,
+    editService,
+    deleteService,
+    addWorkingHours,
+    getWorkingHours,
+    updateWorkingHours,
     addStaff,
     getAllStaff,
     editStaff,
     deleteStaff,
-    addWorkingHours,
-    getWorkingHours,
-    updateWorkingHours,
+    getAllReviews,
+    respondToReviewByAdmin,
     getAllAppointments,
-    getAppointmentById,
-    getStaffById,
-    updateAppointment,
-    getAllReviewsForAdmin,
-    respondToReviewByAdmin
-    
-};
+    deleteAppointment
+}

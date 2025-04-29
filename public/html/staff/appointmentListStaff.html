@@ -5,20 +5,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Appointments</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/public/css/styles.css">
 </head>
 
 <body>
     <header>
         <nav>
             <ul>
-                <li><a href="/html/staff/home.html" class="nav-link">Home</a></li>
-                <li><a href="/html/staff/responseByStaff.html" class="nav-link">Rating and Review</a></li>
-                <li><a href="/html/staff/appointmentListStaff.html" class="nav-link active">Appointments</a></li>
+                <li><a href="/public/html/staff/home.html" class="nav-link">Home</a></li>
+                <li><a href="/public/html/staff/responseByStaff.html" class="nav-link">Rating and Review</a></li>
+                <li><a href="/public/html/staff/selectSlots.html" class="nav-link"> Selected Slots</a></li>
+                <li><a href="/public/html/staff/appointmentListStaff.html" class="nav-link active">Appointments</a></li>
             </ul>
         </nav>
     </header>
     <h2>My Appointments</h2>
+    <label for="itemsPerPage">Appointments per page:</label>
+    <select id="itemsPerPage">
+        <option value="5" selected>5</option>
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="30">30</option>
+        <option value="40">40</option>
+    </select>
     <table id="appointmentsTable">
         <thead>
             <tr>
@@ -34,9 +43,10 @@
         </thead>
         <tbody id="staffAppointments"></tbody>
     </table>
+    <div id="pagination"></div>
 
-    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="/js/staff/appointmentListStaff.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.19.0/axios.min.js"></script>
+    <script src="/public/js/staff/appointmentListStaff.js"></script>
 
 </body>
 

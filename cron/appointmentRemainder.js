@@ -28,7 +28,7 @@ const appointmentReminderJob = cron.schedule('* * * * *', async () => {
         include: [
           { model: User },
           { model: Staff },
-          { model: Service, as: 'service' },
+          { model: Service},
         ],
       });
 
@@ -37,12 +37,12 @@ const appointmentReminderJob = cron.schedule('* * * * *', async () => {
       for (const appt of upcomingAppointments) {
         await sendEmail({
           to: appt.user.email,
-          subject: `Reminder: Your ${appt.service.name} appointment is in 1 hour`,
+          subject: `Reminder: Your ${appt.Service.name} appointment is in 1 hour`,
           html: `
             <p>Hi ${appt.user.name},</p>
             <p>This is a reminder for your appointment:</p>
             <ul>
-              <li>Service: ${appt.service.name}</li>
+              <li>Service: ${appt.Service.name}</li>
               <li>Date: ${appt.date}</li>
               <li>Time: ${appt.time}</li>
               <li>Staff: ${appt.Staff.staffname}</li>

@@ -1,491 +1,630 @@
-require('dotenv').config();
-const Service = require('../models/services');
 const User = require('../models/user');
+const StaffSlots = require('../models/staffSlots');
 const Staff = require('../models/staffMember');
+const Service = require('../models/services');
 const Appointment = require('../models/bookingAppointment');
-const WorkingHours = require('../models/workingHours'); // Assuming you have a model for working hours
-const { getWeekday } = require('../helper/helper'); // Utility function to get the weekday from a date
-const { generateSlots } = require('../helper/slotGenerator'); // Function to generate time slots based on working hours and service duration
-const Review = require('../models/review');
+const { createOrder } = require("../service/cashfreeService");
+const { getPaymentStatus } = require("../service/cashfreeService");
+const sequelize = require('../util/database');
+const Order = require('../models/paymentOrder');
 const sendEmail = require('../service/sendEmail');
+const { Op } = require('sequelize');
+const Review = require('../models/review');
+const moment = require('moment');
 
-function convertTo12HourFormat(time24) {
-  const [hour, minute] = time24.split(':');
-  const hourInt = parseInt(hour);
-  const period = hourInt >= 12 ? 'PM' : 'AM';
-  const hour12 = hourInt % 12 === 0 ? 12 : hourInt % 12;
-  return `${hour12}:${minute} ${period}`;
+// helper function to format 24h time to 12h
+function formatTime(time24) {
+    const [hours, minutes] = time24.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours));
+    date.setMinutes(parseInt(minutes));
+
+    let options = { hour: 'numeric', minute: 'numeric', hour12: true };
+    return date.toLocaleTimeString([], options);
 }
 
-const getStaffByService = async (io, socket, data) => {
-  try {
-    const { serviceId } = data;
 
-    const staffList = await Staff.findAll({
-      where: { specializationId: serviceId }, // filter on foreign key
-      include: {
-        model: Service,
-        as: 'specialization',
-        attributes: ['id', 'name'], // optional: select specific service fields
-      },
-      attributes: ['id', 'staffname']
-    });
-
-    //console.log('Found Staff:', staffList);
-
-
-    socket.emit('staff-list-by-service', staffList);
-  } catch (error) {
-    console.error('Error fetching staff for service:', error);
-    socket.emit('staff-list-by-service', []); // fallback empty list
-  }
-};
-
-
-const getAvailableSlots = async (io, socket, { serviceId, staffId, date, fromTime, toTime }) => {
+const logoutUser = async (req, res) => {
     try {
-      console.log("Totime is", toTime);
-      // Fetch service duration
-      const service = await Service.findByPk(serviceId);
-      if (!service) {
-        console.log("No service found");
-        return socket.emit("availableSlotsResult", []);
-      }
-  
-      // Fetch staff working hours
-      const staff = await Staff.findByPk(staffId);
-      if (!staff || !staff.startTime || !staff.endTime) {
-        console.log("No staff or working hours found");
-        return socket.emit("availableSlotsResult", []);
-      }
-  
-      // Generate slots
-      const slots = generateSlots(
-        fromTime,
-        toTime,
-        service.duration,
-        staff.startTime,
-        staff.endTime
-      );
-  
-      console.log("Generated slots:", slots);
-  
-      // Filter out booked appointments
-      const appointments = await Appointment.findAll({
-        where: { assignedStaffId: staffId, date },
-      });
-  
-      const bookedTimes = appointments.map((a) => a.time);
-      const availableSlots = slots.filter(slot => !bookedTimes.includes(slot));
-  
-      console.log("Available slots:", availableSlots);
-  
-      socket.emit("availableSlotsResult", availableSlots);
+
+        // If using sessions, destroy it
+        if (req.session) {
+            req.session.destroy(err => {
+                if (err) {
+                    return res.status(500).json({ message: 'Logout failed. Try again!' });
+                }
+                res.status(200).json({ message: 'Logged out successfully!' });
+            });
+        } else {
+            res.status(200).json({ message: 'Logged out successfully!' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Something went wrong!' });
+    }
+};
+
+const getProfile = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+
+        const profile = await User.findByPk(userId);
+
+        return res.status(200).json({ success: true, profile });
+    } catch (error) {
+        console.log("Get profile error:", error);
+        return res.status(500).json({ success: false, message: 'Something went wrong!' });
+    }
+};
+
+const updateProfile = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { name, email, phonenumber } = req.body;
+
+        //console.log("Profile Id:", userId);
+
+        const profile = await User.findByPk(userId);
+        if (!profile) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        profile.name = name;
+        profile.email = email;
+        profile.phonenumber = phonenumber;
+
+        await profile.save();
+        return res.status(200).json({ success: true, message: "Profile Updated Successfully" });
     } catch (err) {
-      console.error("Slot fetch error:", err);
-      socket.emit("availableSlotsResult", []);
+        console.log("Update profile error:", err);
+        return res.status(500).json({ success: false, message: "Error updating profile" });
     }
-}
-
-const checkAppointmentStatus = async (io, socket, { appointmentId }) => {
-  try {
-    //console.log(appointmentId);
-    const appointment = await Appointment.findByPk(appointmentId);
-    //console.log("Appointment:", appointment.isPaid);
-    socket.emit("appointment-payment-status", {
-      isPaid: appointment.isPaid
-    });
-
-  } catch (error) {
-    console.error("Error checking appointment payment status:", error);
-    socket.emit("appointment-payment-status", {
-      isPaid: false,
-      error: "Internal server error"
-    });
-  }
-}
-
-const bookAppointment = async (io, socket, data) => {
-  try {
-    const userId = socket.user.id;
-  
-    // Get appointment details from the client
-    const { serviceId, date, time, selectedStaffId, status } = data; // Make sure appointmentData is received from frontend
-  
-    let assignedStaff;
-  
-    if (selectedStaffId) {
-      // ✅ 1. If a staff is selected, validate and assign them
-      assignedStaff = await Staff.findOne({
-        where: {
-          id: selectedStaffId,
-          specializationId: serviceId,
-          isAvailable: true
-        }
-      });
-  
-      if (!assignedStaff) {
-        return socket.emit('appointment-error', { message: 'Selected staff is not available.' });
-      }
-    } else {
-      // ✅ 2. If no staff is selected, find all available staff with working hours that include the selected time
-      const allAvailableStaff = await Staff.findAll({
-        where: {
-          specializationId: serviceId,
-          isAvailable: true
-        }
-      });
-  
-      const staffAtWork = allAvailableStaff.filter(staff => {
-        const [startHour, startMinute] = staff.startTime.split(':').map(Number);
-        const [endHour, endMinute] = staff.endTime.split(':').map(Number);
-        const [hour, minute] = time.split(':').map(Number);
-  
-        const slotMinutes = hour * 60 + minute;
-        const startMinutes = startHour * 60 + startMinute;
-        const endMinutes = endHour * 60 + endMinute;
-  
-        return slotMinutes >= startMinutes && slotMinutes + staff.duration <= endMinutes;
-      });
-  
-      if (staffAtWork.length === 0) {
-        return socket.emit('appointment-error', { message: 'No staff available at this time.' });
-      }
-  
-      // Randomly assign
-      assignedStaff = staffAtWork[Math.floor(Math.random() * staffAtWork.length)];
-    }
-  
-    // ✅ 3. Create appointment
-    const appointment = await Appointment.create({
-      userId,
-      assignedStaffId: assignedStaff.id,
-      serviceId,
-      date,
-      time,
-      status: status || 'pending',
-      ispaid: false
-    });
-  
-    // ✅ 4. Emit back to client
-    socket.emit("appointment-added", {
-      appointmentId: appointment.id,
-      staffId: assignedStaff.id,
-      serviceId
-    });
-  
-  
-  } catch (err) {
-    console.error('Error booking appointment:', err);
-    socket.emit('appointment-error', { message: 'Booking failed.' });
-  }
 };
 
-const getAppointments = async (io, socket) => {
-  try {
-    const appointments = await Appointment.findAll({
-      where: { userId: socket.user.id },
-      include: [ 
-        {
-          model: User,
+const getAvailableSlots = async (req, res, next) => {
+    try {
+        const { date, serviceId } = req.query;
 
-        },
-        {
-          model: Staff,
-          attributes: ['id', 'staffname'], // only include necessary fields
-        },
-        {
-          model: Service,
-          as: 'service',
-          attributes: ['name'],
-        },
-      ],
-    });
-    socket.emit('user-appointment-list', appointments);
-  } catch (err) {
-    console.error("Error fetching user appointments:", err);
-    socket.emit('user-appointment-list', []);
-  }
-};
+        //console.log(date, serviceId);
 
-const rescheduleAppointment = async (io, socket, { appointmentId, date, time, serviceId, selectedStaffId }) => {
-  try {
-    const appointment = await Appointment.findByPk(appointmentId);
-
-    if (!appointment) return;
-
-    // Update appointment info
-    appointment.serviceId = serviceId;
-    appointment.date = date;
-    appointment.time = time;
-
-    // If no staff assigned yet, assign one randomly
-    if (!appointment.assignedStaffId) {
-      const availableStaff = await Staff.findAll({
-        where: {
-          specializationId: serviceId,
-          isAvailable: true,
-          startTime: { [Op.lte]: time },
-          endTime: { [Op.gte]: time }
+        if (!date || !serviceId) {
+            return res.status(400).json({ message: "Date and serviceId are required." });
         }
-      });
 
-      if (availableStaff.length === 0) {
-        return socket.emit('appointment-error', {
-          message: 'No available staff to reschedule this appointment.'
+
+        // 1. Find all staff who provide this service (specializationId)
+        const staffs = await Staff.findAll({
+            where: { specializationId: serviceId },
+            attributes: ['id']
         });
-      }
 
-      const randomStaff = availableStaff[Math.floor(Math.random() * availableStaff.length)];
-      appointment.assignedStaffId = randomStaff.id;
+        const staffIds = staffs.map(s => s.id);
 
-      // Send staff email
-      await sendEmail(
-        randomStaff.email,
-        'New Appointment Assigned (Rescheduled)',
-        `
-          Hello ${randomStaff.name},
+        if (staffIds.length === 0) {
+            return res.status(404).json({ message: "No staff available for selected service." });
+        }
 
-          A rescheduled appointment has been assigned to you:
+        // 2. Find all slots selected by staff for that date
+        const slots = await StaffSlots.findAll({
+            where: {
+                staffId: staffIds,
+                date: date
+            },
+            attributes: ['id', 'date', 'startTime', 'endTime', 'staffId', 'status'],
+            include: [
+                {
+                    model: Staff,
+                    attributes: ['id', 'staffname']  // staffName
+                },
+                {
+                    model: Service,
+                    attributes: ['id', 'name', 'price']  // serviceName, servicePrice
+                }
+            ]
+        });
 
-          Date: ${date}
-          Time: ${convertTo12HourFormat(time)}
-          Service ID: ${serviceId}
 
-          Please check your schedule.
+        let formattedSlots = slots.map(slot => ({
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            staffName: slot.Staff?.staffname || 'Unknown',
+            serviceName: slot.Service?.name,
+            servicePrice: slot.Service?.price,
+            serviceId: slot.Service?.id,
+            staffId: slot.Staff?.id,
+            date: slot.date,
+            isDisabled: slot.status,
+            slotId: slot.id
+        }));
 
-          Thanks,
-          Salon Team
-        `
-      );
-    } else {
-      appointment.assignedStaffId = selectedStaffId;
+        //console.log("Formatted:", formattedSlots);
+
+
+        return res.status(200).json({ success: true, formattedSlots });
+    } catch (error) {
+        console.error("Error fetching slots:", error);
+        res.status(500).json({ message: "Something went wrong." });
     }
-
-    await appointment.save();
-
-    // Get full details for response
-    const updated = await Appointment.findByPk(appointmentId, {
-      include: [User, { model: Service, as: 'service', attributes: ['name'] }]
-    });
-
-    // Notify user via email
-    const userEmail = updated.user?.email;
-    const userName = updated.user?.name || 'Customer';
-    const serviceName = updated.service?.name || 'Selected Service';
-
-    if (userEmail) {
-      const subject = 'Your Appointment Has Been Rescheduled';
-      const formattedTime = convertTo12HourFormat(updated.time);
-      const message = `
-        Hi ${userName},
-
-        Your appointment has been successfully rescheduled.
-
-        Date: ${updated.date}
-        Time: ${formattedTime}
-        Service: ${serviceName}
-
-        If you have any questions, feel free to contact us.
-
-        Thank you!
-      `;
-
-      await sendEmail(userEmail, subject, message);
-    }
-
-    io.emit('appointment-rescheduled', updated);
-  } catch (err) {
-    console.error('Error updating appointment:', err);
-    socket.emit('appointment-error', { message: 'Failed to reschedule appointment.' });
-  }
 };
 
-const cancelAppointment = async (io, socket, appointmentId) => {
-  try {
-    const appointment = await Appointment.findByPk(appointmentId);
+const searchSlots = async (req, res, next) => {
+    try {
+        const { date, serviceId, fromTime, toTime } = req.query;
 
-    if (!appointment) {
-      return socket.emit("appointment-cancel-failed", "Appointment not found");
+        if (!date || !serviceId || !fromTime || !toTime) {
+            return res.status(400).json({ success: false, message: "Missing required parameters" });
+        }
+
+        // Fetch all available slots for the given date and service
+        let allSlots = await StaffSlots.findAll({
+            where: { date: date, serviceId: serviceId},
+            include: [
+                {
+                    model: Staff,
+                    attributes: ['id', 'staffname']  // staffName
+                },
+                {
+                    model: Service,
+                    attributes: ['id', 'name', 'price']  // serviceName, servicePrice
+                }
+            ]
+        });
+        // getSlotsForDateAndService() -> Your DB function to fetch slots (you must have this)
+
+        // Filter slots between fromTime and toTime
+        const filteredSlots = allSlots.filter(slot => {
+            const slotStart = moment(slot.startTime, "HH:mm");  // Assume your slots have startTime and endTime in "HH:mm"
+            const slotEnd = moment(slot.endTime, "HH:mm");
+            const from = moment(fromTime, "HH:mm");
+            const to = moment(toTime, "HH:mm");
+
+            return slotStart.isSameOrAfter(from) && slotEnd.isSameOrBefore(to);
+        });
+
+
+        const formattedSlots = filteredSlots.map(slot => ({
+            id: slot.id,
+            date: slot.date,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            staffId: slot.staffId,
+            serviceId: slot.serviceId,
+            serviceName: slot.Service?.name,
+            servicePrice: slot.Service?.price,
+            staffName: slot.Staff?.staffname || 'Unknown',
+            isDisabled: slot.status,
+            slotId: slot.id
+        }));
+
+
+        return res.status(200).json({ success: true, slots: formattedSlots });
+
+
+    } catch (error) {
+        console.error("Error fetching slots:", error);
+        return res.status(500).json({ message: "An error occurred while searching for slots!" });
+    }
+};
+
+const bookAndPay = async (req, res, next) => {
+    const transaction = await sequelize.transaction();//creating a transaction object
+    try {
+        const { serviceId, date, time, staffId, slotId } = req.body;
+        //console.log("Bosy:", serviceId, date, time, staffId);
+        const service = await Service.findByPk(serviceId);
+        const userId = req.user.id;
+        const orderId = "ORDER-" + Date.now();
+        const orderAmount = service.price;
+        const orderCurrency = "INR";
+        const customerID = userId.toString();
+        const customerPhone = "9999999999"; // Placeholder, ideally get from user profile
+
+        const appointment = await Appointment.create({
+            date,
+            time,
+            isPaid: false,
+            status: 'pending',
+            serviceId: serviceId,
+            userId: userId,
+            staffId: staffId,
+            isStaffAvailable: true,
+            slotId: slotId
+        }, { transaction });
+
+        const paymentSessionId = await createOrder(orderId, orderAmount, orderCurrency, customerID, customerPhone);
+
+        await Order.create({
+            userId: userId,
+            orderAmount,
+            orderCurrency,
+            appointmentId: appointment.id,
+            orderId,
+            serviceId: serviceId,
+            paymentSessionId,
+            paymentStatus: "PENDING",
+
+        }, { transaction });
+
+        const fullAppointment = await Appointment.findByPk(appointment.id, {
+            include: [
+                { model: User, attributes: ['name'] },
+                { model: Service, attributes: ['id', 'name', 'price'] },
+                { model: Staff, attributes: ['id', 'staffname'] },
+                { model: StaffSlots, attributes: ['id'] }
+            ],
+            transaction
+        });
+
+        // Commit transaction if all operations succeed
+        await transaction.commit();
+
+        // ✅ Return fullAppointment (with user, service, staff inside it)
+        return res.status(200).json({
+            success: true,
+            message: "Appointment created Successfully",
+            paymentSessionId,
+            orderId,
+            appointment: fullAppointment
+        });
+
+    } catch (err) {
+        await transaction.rollback();
+        console.error("Error initiating payment:", err);
+        return res.status(200).json({ success: false, message: "Something went wrong during payment" });
+    }
+};
+
+const updatePaymentStatus = async (req, res, next) => {
+    try {
+        const { orderId } = req.body;
+
+        console.log("OrderId is:", orderId);
+
+
+        // Get the payment status using your existing method
+        const orderStatus = await getPaymentStatus(orderId);
+
+        // Find the order by orderId and userId
+        const order = await Order.findOne({ where: { orderId, userId: req.user.id } });
+
+        if (!order) {
+            return res.status(404).json({ message: "Order not found" });
+        }
+
+        // Find the appointment associated with the order
+        const appointment = await Appointment.findByPk(order.appointmentId, {
+            include: [
+                { model: User, attributes: ['name', 'email'] },
+                { model: Staff, attributes: ['id', 'staffname', 'staffemail'] },
+                { model: Service, attributes: ['id', 'name'] },
+                {model: StaffSlots, attributes:['id']}
+            ]
+        });
+
+        // Update the order with payment status
+        await order.update({ paymentStatus: orderStatus });
+
+        // Check if payment was successful
+        if (orderStatus === "SUCCESS") {
+            // Update appointment to show it is paid and confirmed
+            await appointment.update({ isPaid: true, status: 'confirmed' });
+
+            const staffSlots = await StaffSlots.findByPk(appointment.slotId,{
+                include: [
+                    { model: Staff, attributes: ['id', 'staffname', 'staffemail'] },
+                    { model: Service, attributes: ['id', 'name'] }
+                ]
+            });
+            //console.log("staffslots", staffSlots);
+
+            await staffSlots.update({status: true});
+
+            //console.log("StaffSlots:", staffSlots); 
+
+            const timeFormatted = formatTime(appointment.time);
+
+            // Send confirmation email to the user
+            await sendEmail({
+                to: appointment.user.email,
+                subject: 'Appointment Confirmed',
+                html: `
+                  <h2>Hello ${appointment.user.name},</h2>
+                  <p>Your appointment has been confirmed.</p>
+                  <h3>Details:</h3>
+                  <ul>
+                      <li><strong>Service:</strong> ${appointment.Service.name}</li>
+                      <li><strong>Date:</strong> ${appointment.date}</li>
+                      <li><strong>Time:</strong> ${timeFormatted}</li>
+                      <li><strong>Staff:</strong> ${appointment.Staff.staffname}</li>
+                  </ul>
+                  <p>We look forward to seeing you!</p>
+                `
+            });
+
+            // Send notification email to the staff member
+            await sendEmail({
+                to: appointment.Staff.staffemail,
+                subject: 'New Appointment Assigned',
+                html: `
+                    <p>Hi ${appointment.Staff.staffname},</p>
+                    <p>You have been assigned a new appointment:</p>
+                    <ul>
+                        <li><strong>Date:</strong> ${appointment.date}</li>
+                        <li><strong>Time:</strong> ${appointment.time}</li>
+                        <li><strong>Service:</strong> ${appointment.Service.name}</li>
+                        <li><strong>Customer:</strong> ${appointment.user.name}</li>
+                    </ul>
+                    <p>Please check your dashboard for more details.</p>
+                `
+            });
+
+            // Respond with a success message to the client
+            return res.status(200).json({ success: true, message: "Transaction successfully updated and emails sent" });
+        } else {
+            // Handle failed payment
+            return res.status(400).json({ success: false, message: "Payment was not successful" });
+        }
+
+    } catch (err) {
+        console.error("Error updating transaction:", err);
+        return res.status(500).json({ success: false, message: "Something went wrong" });
+    }
+};
+
+const getAppointmentById = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        const totalItems = await Appointment.count({ where: { userId: userId } });
+
+        const appointments = await Appointment.findAll({
+            where: { userId: userId },
+            offset: (page - 1) * limit,
+            limit: limit,
+            include: [
+                { model: User, attributes: ['name'] },
+                { model: Service, attributes: ['name'] },
+                { model: Staff, attributes: ['id', 'staffname'] }
+            ],
+            order: [
+                ['id', 'ASC']
+            ]
+        });
+
+        return res.status(200).json({
+            success: true, appointments,
+            currentPage: page,
+            hasNextPage: limit * page < totalItems,
+            nextPage: page + 1,
+            hasPreviousPage: page > 1,
+            previousPage: page - 1,
+            lastPage: Math.ceil(totalItems / limit),
+        });
+    } catch (err) {
+        console.log("Error getting appointments:", err);
+        return res.status(500).json({ success: false, message: "Getting appointments failed" });
+    }
+};
+
+const rescheduleAppointment = async(req, res, next) => {
+    const appointmentId = req.params.id;
+    const userId = req.user.id;
+    const { newDate, newTime, newStaffId, newSlotId } = req.body;
+
+    try {
+        // Step 1: Find the existing appointment
+        const appointment = await Appointment.findOne({
+            where: { id: appointmentId, userId },
+            include: [
+                { model: User, attributes: ['name', 'email'] },
+                { model: Staff, attributes: ['id', 'staffname', 'staffemail'] },
+                { model: Service, attributes: ['id', 'name'] },
+                {model: StaffSlots, attributes:['id']}
+            ]
+        });
+
+        if (!appointment) {
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
+        }
+
+
+        // Step 2: Validate the new slot
+        const slot = await StaffSlots.findOne({
+            where: {
+                id: newSlotId,
+                staffId: newStaffId,
+                date: newDate,
+                startTime: newTime,
+                status: false
+            }
+        });
+
+        if (!slot) {
+            return res.status(400).json({ success: false, message: 'Selected slot is no longer available' });
+        }
+
+        // Step 3: Free the old slot
+        await StaffSlots.update({ status: false }, {
+            where: { id: appointment.slotId }
+        });
+
+        // Step 4: Book the new slot
+        await StaffSlots.update({ status: true }, {
+            where: { id: newSlotId }
+        });
+
+        // Step 5: Update appointment
+        appointment.slotId = newSlotId;
+        appointment.staffId = newStaffId;
+        appointment.date = newDate;
+        appointment.time = newTime;
+        await appointment.save();
+
+        const timeFormatted = formatTime(appointment.time);
+
+        await sendEmail({
+            to: appointment.user.email,
+            subject: "Appointment Rescheduled",
+            html:`
+            <p> Hello ${appointment.user.name},</p>
+            <p>This is to inform you that your appointment is rescheduled. Please see the below details</p>
+            <ul>
+                <li><strong>Date:</strong> ${appointment.date}</li>
+                <li><strong>Time:</strong> ${timeFormatted}</li>
+                <li><strong>Service:</strong> ${appointment.Service.name}</li>
+                <li><strong>Customer:</strong> ${appointment.user.name}</li>
+            </ul>
+            <p> We look forward to sss you. </p>`
+        });
+
+        return res.json({ success: true, message: 'Appointment rescheduled successfully' });
+
+    } catch (err) {
+        console.error('Error rescheduling appointment:', err);
+        return res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+const deleteAppointment = async(req, res, next) => {
+    try {
+        const { id } = req.params;
+        const appointment = await Appointment.findByPk(id);
+
+        if (!appointment) {
+            return res.status(404).json({ success: false, message: "Appointment not found" });
+        }
+
+        await appointment.destroy({ where: { id: id}});
+
+        const staffSlots = await StaffSlots.findByPk(appointment.slotId, {
+            include: [
+                { model: Staff, attributes: ['id'] },
+                { model: Service, attributes: ['id'] }
+            ]
+        });
+        await staffSlots.update({status: false});
+        return res.status(200).json({ success: true, message: "Appointment deleted successfully", staffSlots, appointment });
+    } catch (err) {
+        console.error('Error canceling appointment:', err);
+        return res.status(500).json({ success: false, message: "Error deleting appointment" });
     }
 
-    await appointment.destroy();
+};
 
-    io.emit("appointment-cancelled", appointmentId); // Notify all clients
-  } catch (err) {
-    console.error("Error cancelling appointment:", err);
-    socket.emit("appointment-cancel-failed", "Something went wrong");
-  }
+const getEligibleAppointments = async (req, res, next) => {
+    try {
+        const userId = req.user.id;
+
+        const appointments = await Appointment.findAll({
+            where: {
+                userId: userId,
+                status: 'completed'
+            },
+            include: [
+                { model: Staff, attributes: ['staffname'] },
+                { model: Service, attributes: ['name'] },
+                {
+                    model: Review,
+                    required: false // LEFT JOIN - allow no review
+                }
+            ],
+            order: [['date', 'ASC']]
+        });
+
+        //filter appointments that DO NOT have a Review
+        const eligibleAppointments = appointments.filter(appt => !appt.Review);
+
+        return res.status(200).json({ success: true, appointments: eligibleAppointments });
+    } catch (error) {
+        console.error('Error fetching eligible appointments', error);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
 };
 
 
-const getProfile = async (io, socket, data) => {
-  try {
-    const userId = socket.user.id; // Assuming user ID is stored in socket.user
-    if (!userId) return socket.emit('profileError', { message: 'User not found.' });
-    const user = await User.findByPk(userId);
-    io.emit('profileData', user);
-  } catch (err) {
-    console.error('Error fetching profile:', err);
-    io.emit('profileData', { message: 'Failed to fetch profile.' });
-  }
+const submitReview = async(req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const { appointmentId, rating, comment } = req.body;
+
+        if (!appointmentId || !rating || !comment) {
+            return res.status(400).json({ message: 'Missing fields' });
+        }
+
+        const appointment = await Appointment.findOne({ where: { id: appointmentId, userId: userId } });
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
+        }
+
+        const review = await Review.create({
+            userId: userId,
+            staffId: appointment.staffId,
+            appointmentId: appointment.id,
+            rating,
+            comment
+        });
+
+        return res.status(200).json({success: true, message: 'Review submitted', review });
+    } catch (error) {
+        console.error('Error submitting review', error);
+        return res.status(500).json({success:false, message: 'Internal server error' });
+    }
+
 };
 
-const updateProfile = async (io, socket, data) => {
-  try {
-    const { name, email, phonenumber } = data;
-    const userId = socket.user.id; // Assuming user ID is stored in socket.user
+const getMyReviews = async(req, res, next) => {
+    try {
+        const userId = req.user.id;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
 
-    const user = await User.findByPk(userId);
-    if (!user) return socket.emit('profileError', { message: 'User not found.' });
+        const totalItems = await Review.count({ where: { userId: userId } });
 
-    user.name = name;
-    user.email = email;
-    user.phonenumber = phonenumber;
-    await user.save();
+        const reviews = await Review.findAll({
+            where: { userId: userId },
+            include: [
+                {
+                  model: Appointment,
+                  include: [
+                    { model: Service},
+                    { model: Staff}
+                  ]
+                }
+              ],
+        
+            offset: (page - 1) * limit,
+            limit: limit,
+        });
 
-    io.emit('profileUpdated', { message: 'Profile updated successfully.', customer: user });
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    socket.emit('profileError', { message: 'Failed to update profile.' });
-  }
+        
+
+        return res.status(200).json({ success: true, reviews, 
+            currentPage: page,
+            hasNextPage: limit * page < totalItems,
+            nextPage: page + 1,
+            hasPreviousPage: page > 1,
+            previousPage: page - 1,
+            lastPage: Math.ceil(totalItems / limit),
+        });
+    } catch (error) {
+        console.error('Error fetching reviews', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 }
-
-const getEligibleAppointments = async (io, socket, data) => {
-  try {
-    const appointments = await Appointment.findAll({
-      where: { userId: socket.user.id, status: 'completed' },
-      include: [
-        { model: Service, as: 'service' },
-        { model: Staff },
-        {
-          model: Review,
-          required: false
-        }
-      ]
-    });
-
-    const notReviewed = appointments.filter(appt => !appt.Review);
-    socket.emit('eligible-appointments', notReviewed);
-  } catch (error) {
-    console.error('Error:', error);
-    socket.emit('error', 'Failed to fetch appointments');
-  }
-};
-
-const addReview = async (io, socket, data) => {
-  try {
-    const { appointmentId, rating, comment } = data;
-    const appointment = await Appointment.findOne({ where: { id: appointmentId, userId: socket.user.id } });
-
-    if (!appointment || appointment.status !== 'completed') {
-      return socket.emit('error', 'Appointment not eligible');
-    }
-
-    const exists = await Review.findOne({ where: { appointmentId } });
-    if (exists) return socket.emit('error', 'Review already submitted');
-
-    const review = await Review.create({
-      userId: socket.user.id,
-      staffId: appointment.assignedStaffId,
-      serviceId: appointment.serviceId,
-      appointmentId,
-      rating,
-      comment
-    });
-
-    // ✅ Send email to staff
-    if (appointment.Staff && appointment.Staff.email) {
-      await sendEmail({
-        to: appointment.Staff.email,
-        subject: 'You received a new review from a customer!',
-        html: `
-          <p>Hi <strong>${appointment.Staff.staffname}</strong>,</p>
-          <p>A customer has just left a review for a service you provided.</p>
-          <ul>
-            <li><strong>Service:</strong> ${appointment.serviceName || 'N/A'}</li>
-            <li><strong>Rating:</strong> ${'⭐️'.repeat(rating)}</li>
-            <li><strong>Comment:</strong> "${comment}"</li>
-          </ul>
-          <p>You can view and respond to this review from your staff dashboard.</p>
-          <p>– Your Team</p>
-        `
-      });
-    }
-
-    // Notify customer
-    socket.emit('review-submitted', review);
-
-    // Notify staff (if online)
-    io.to(`staff_${appointment.assignedStaffId}`).emit('new-review', review);
-  } catch (error) {
-    console.error(error);
-    socket.emit('error', 'Failed to submit review');
-  }
-};
-
-const getMyReviews = async (io, socket, data) => {
-  try {
-    //console.log("Data is:", data);
-    let { page, limit } = data;
-    //console.log("Page is:", page);
-    // ✅ Convert to integers and fallback if invalid
-    page = parseInt(page) || 1;
-    limit = parseInt(limit) || 5;
-    const offset = (page - 1) * limit;
-    const { rows: reviews, count: total } = await Review.findAndCountAll({
-      where: { userId: socket.user.id },
-      include: [
-        {
-          model: Appointment,
-          include: [
-            { model: Service, as: 'service' },
-            { model: Staff }
-          ]
-        }
-      ],
-      offset,
-      limit, // ✅ Add this to paginate in the DB itself
-      order: [['createdAt', 'DESC']]
-    });
-
-    const formatted = reviews.map(r => ({
-      id: r.id,
-      rating: r.rating,
-      comment: r.comment,
-      staffResponse: r.staffResponse,
-      service: r.Appointment?.service,
-      Staff: r.Appointment?.Staff
-    }));
-
-    //console.log("Formatted", formatted);
-    //console.log(total, page, limit);
-    socket.emit("my-reviews", {
-      reviews: formatted,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
-    });
-  } catch (err) {
-    console.error('Error fetching reviews:', err);
-    socket.emit('error', 'Failed to fetch reviews');
-  }
-};
-
-
 
 module.exports = {
-  getStaffByService,
-  getAvailableSlots,
-  bookAppointment,
-  checkAppointmentStatus,
-  getAppointments,
-  rescheduleAppointment,
-  cancelAppointment,
-  getProfile,
-  updateProfile,
-  getEligibleAppointments,
-  addReview,
-  getMyReviews
-};
+    logoutUser,
+    getProfile,
+    updateProfile,
+    getAvailableSlots,
+    bookAndPay,
+    updatePaymentStatus,
+    getAppointmentById,
+    searchSlots,
+    rescheduleAppointment,
+    deleteAppointment,
+    getEligibleAppointments,
+    submitReview,
+    getMyReviews
+
+}
