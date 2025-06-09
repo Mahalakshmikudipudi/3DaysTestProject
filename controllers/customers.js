@@ -217,9 +217,11 @@ const bookAndPay = async (req, res, next) => {
         const customerID = userId.toString();
         const customerPhone = "9999999999"; // Placeholder, ideally get from user profile
 
+        const timeFormatted = formatTime(time);
+
         const appointment = await Appointment.create({
             date,
-            time,
+            time: timeFormatted,
             isPaid: false,
             status: 'pending',
             serviceId: serviceId,

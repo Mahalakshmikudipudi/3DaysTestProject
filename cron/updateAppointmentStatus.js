@@ -5,6 +5,7 @@ const User = require('../models/user');
 const Staff = require('../models/staffMember');
 const Service = require('../models/services');
 const sendEmail = require('../service/sendEmail'); // Assuming you have a service to send emails
+const moment = require('moment');
 
 const updateAppointmentStatus = cron.schedule('* * * * *', async () => {
   const now = new Date();
@@ -34,10 +35,15 @@ const updateAppointmentStatus = cron.schedule('* * * * *', async () => {
 
     for (const appt of pastAppointments) {
       const [hours, minutes] = appt.time.split(':').map(Number);
-      const appointmentStart = new Date(`${appt.date}T${appt.time}:00`);
+      const appointmentStart = moment(`${appt.date} ${appt.time}`, "YYYY-MM-DD HH:mm").toDate();
+
 
       const durationMinutes = appt.Service?.duration || 30; // fallback to 30 min if not set
       const appointmentEnd = new Date(appointmentStart.getTime() + durationMinutes * 60000);
+
+      console.log("AppointmentEnd", appointmentEnd);
+
+      console.log("Now:", now);
       
       // ✅ Only mark completed and send email once
       if (now > appointmentEnd) {

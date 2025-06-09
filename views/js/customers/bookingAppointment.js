@@ -310,6 +310,8 @@ function addNewAppointmentToUI(appointment) {
 
     if (appointment.status === 'completed') {
         actionButtons = `<td>Completed</td>`;
+    } else if(appointment.status === 'cancelled') {
+        actionButtons = `<td>Cancelled</td>`
     } else {
         actionButtons = `
             <td>
@@ -321,7 +323,7 @@ function addNewAppointmentToUI(appointment) {
         <td>${appointment.id}</td>
         <td>${appointment.user.name}</td>
         <td>${appointment.date}</td>
-        <td>${timeFormatted }</td>
+        <td>${timeFormatted}</td>
         <td>${appointment.Service.name}</td>
         <td>${appointment.Staff.staffname}</td>
         ${actionButtons}
@@ -476,7 +478,7 @@ async function cancelAppointment(e, appointmentId) {
         if (response.data.success) {
             alert(response.data.message);
             location.reload();
-            updateAppointmentStatusInUI(appointmentId, response.data.appointment);
+            
         } else {
             alert(data.message || "Failed to delete staff.");
         }
@@ -485,11 +487,6 @@ async function cancelAppointment(e, appointmentId) {
         alert("An error occurred while deleting the staff.");
     }
 };
-
-function updateAppointmentStatusInUI(appointmentId, newStatus) {
-    const row = document.querySelector(`[data-id='${appointmentId}']`).closest('tr');
-    row.cells[6].innerText = newStatus; // Update the status column with 'Canceled'
-}
 
 
 

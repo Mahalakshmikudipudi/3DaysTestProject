@@ -32,7 +32,9 @@ async function fetchAppointments() {
 
             if (appointment.status === 'completed') {
                 actionButtons = `<td>Completed</td>`;
-            } else {
+            }else if(appointment.status === 'cancelled') {
+                actionButtons = `<td>Cancelled</td>`
+            }else {
                 actionButtons = `
             <td>
                 <button class="cancel-btn" onclick="cancelAppointment(event, ${appointment.id})">Cancel</button>

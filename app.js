@@ -1,9 +1,9 @@
 
-// const appointmentReminderJob = require('./cron/appointmentRemainder');
-// appointmentReminderJob.start(); // Start the cron
+const appointmentReminderJob = require('./cron/appointmentRemainder');
+appointmentReminderJob.start(); // Start the cron
 
-// const updateAppointmentStatus = require('./cron/updateAppointmentStatus');
-// updateAppointmentStatus.start(); //  Start the cron
+const updateAppointmentStatus = require('./cron/updateAppointmentStatus');
+updateAppointmentStatus.start(); //  Start the cron
 
 
 const dotenv = require('dotenv');
@@ -32,13 +32,64 @@ const staffRoutes = require('./routes/staffRoutes');
 
 const app = express();
 
+app.get('/customers/:page', (req, res, next) => {
+    const filePath = path.join(__dirname, 'views', 'html', 'customers', `${req.params.page}.html`);
+    res.sendFile(filePath, err => {
+        if (err) {
+            console.error('Customer page not found:', filePath);
+            next(); // forward to error handler
+        }
+    });
+});
 
-app.use(express.static(path.join(__dirname, "public")));
+//  Clean URLs like /customers/updateProfile → public/html/customers/updateProfile.html
+app.get('/customers/:page', (req, res, next) => {
+    const filePath = path.join(__dirname, 'views', 'html', 'customers', `${req.params.page}.html`);
+    res.sendFile(filePath, err => {
+        if (err) {
+            console.error('Customer page not found:', filePath);
+            next(); // forward to error handler
+        }
+    });
+});
+
+app.get('/admin/:page', (req, res, next) => {
+    const filePath = path.join(__dirname, 'views', 'html', 'admin', `${req.params.page}.html`);
+    res.sendFile(filePath, err => {
+        if (err) {
+            console.error('Customer page not found:', filePath);
+            next(); // forward to error handler
+        }
+    });
+});
+
+app.get('/staff/:page', (req, res, next) => {
+    const filePath = path.join(__dirname, 'views', 'html', 'staff', `${req.params.page}.html`);
+    res.sendFile(filePath, err => {
+        if (err) {
+            console.error('Customer page not found:', filePath);
+            next(); // forward to error handler
+        }
+    });
+});
+
+// Optional: root-level clean URLs like /select → public/html/select.html
+app.get('/:page', (req, res, next) => {
+    const filePath = path.join(__dirname, 'views', 'html', `${req.params.page}.html`);
+    res.sendFile(filePath, err => {
+        if (err) {
+            next();
+        }
+    });
+});
+
+
+app.use(express.static(path.join(__dirname, "views", 'html')));
 
 // get config vars
 
 app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "public/html/home.html"));
+    res.sendFile(path.join(__dirname, "views/html/home.html"));
 });
 
 
@@ -54,13 +105,13 @@ app.use('/customer', customerRoutes);
 app.use('/staff', staffRoutes);
 
 User.hasMany(Service);
-Service.belongsTo(User, {foreignKey: 'userId'});
+Service.belongsTo(User, { foreignKey: 'userId' });
 
-User.hasMany(WorkingHours, { foreignKey: 'userId'});
+User.hasMany(WorkingHours, { foreignKey: 'userId' });
 
-WorkingHours.belongsTo(User, { foreignKey: 'userId'});
+WorkingHours.belongsTo(User, { foreignKey: 'userId' });
 
-Staff.belongsTo(User, { foreignKey: 'userId'});
+Staff.belongsTo(User, { foreignKey: 'userId' });
 
 // Many staff can belong to one service (specialization)
 Staff.belongsTo(Service, { as: 'specialization', foreignKey: 'specializationId' });
@@ -72,33 +123,33 @@ Staff.hasMany(StaffSlots, { foreignKey: 'staffId' });
 
 StaffSlots.belongsTo(Staff, { foreignKey: 'staffId' });
 
-Appointment.belongsTo(Service, { foreignKey: 'serviceId'});
+Appointment.belongsTo(Service, { foreignKey: 'serviceId' });
 
-Appointment.belongsTo(Staff, { foreignKey:'staffId'});
+Appointment.belongsTo(Staff, { foreignKey: 'staffId' });
 
-User.hasMany(Appointment, { foreignKey: 'userId'});
+User.hasMany(Appointment, { foreignKey: 'userId' });
 
 Appointment.belongsTo(User, { foreignKey: 'userId' });
 
 StaffSlots.belongsTo(Service, { foreignKey: 'serviceId' });
 
-StaffSlots.belongsTo(Appointment, {foreignKey: 'appointmentId'});
+StaffSlots.belongsTo(Appointment, { foreignKey: 'appointmentId' });
 
-Appointment.belongsTo(StaffSlots, {foreignKey: 'slotId'});
+Appointment.belongsTo(StaffSlots, { foreignKey: 'slotId' });
 
 Service.hasMany(StaffSlots, { foreignKey: 'serviceId' });
 
-User.hasMany(Order, {foreignKey: 'userId'});
+User.hasMany(Order, { foreignKey: 'userId' });
 
-Order.belongsTo(Appointment,{ foreignKey: 'appointmentId'});
+Order.belongsTo(Appointment, { foreignKey: 'appointmentId' });
 
-Review.belongsTo(Appointment, { foreignKey: 'appointmentId'});
+Review.belongsTo(Appointment, { foreignKey: 'appointmentId' });
 
-Review.belongsTo(Staff, {foreignKey: 'staffId'});
+Review.belongsTo(Staff, { foreignKey: 'staffId' });
 
-Review.belongsTo(Service, {foreignKey: 'serviceId'});
+Review.belongsTo(Service, { foreignKey: 'serviceId' });
 
-Review.belongsTo(User, {foreignKey: 'userId'});
+Review.belongsTo(User, { foreignKey: 'userId' });
 
 Appointment.hasOne(Review, { foreignKey: 'appointmentId' });
 
